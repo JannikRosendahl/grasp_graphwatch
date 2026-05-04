@@ -1,0 +1,60 @@
+dataset:
+  name: clearscope_e5
+experiment_prefix: clearscope_e5_default_experiment_classic_w2v
+storage:
+  graph_root_dir: ./data/graphs/clearscope_e5 
+graph_management:
+  force_reload: false
+ground_truth:
+  base_dir: ./ground_truth/clearscope_e5
+times:
+  train_start: ["2019-05-07 00:00:00"]
+  train_end: ["2019-05-14 23:59:59"]
+  test_start: ["2019-05-15 00:00:00"]
+  test_end: ["2019-05-20 23:59:59"]
+  context_size: 120 # in minutes
+  step_size: 120 # in minutes
+location_transformer:
+  max_location_length: 1
+  hidden_dim: 16
+  embedding_dim: 8 
+  num_layers: 2
+  nhead: 4
+  num_epochs: 0
+  patience: 3
+  batch_size: 32
+  positional_encoding_max_len: 5000
+  positional_encoding_div_term_hyperparam: 10000.0
+  learning_rate: 0.001
+  device: cuda
+detection:
+  num_neighbors: [10000,20]
+  batch_size: 32
+  epochs: 4
+  device: cuda
+  learning_rate: 0.01
+  hidden_dim: 128
+  heads: 4
+  num_layers: 2
+  dropout: 0.1
+  weight_decay: 0.0001
+  scheduler_factor: 0.5
+  scheduler_patience: 5
+  scheduler_mode: min
+  shuffle_train_paths: true
+  shuffle_train_batches: true
+attack_windows_for_visualization:
+  # - start_time: "2019-05-14 16:09:00" # attack failed at beginning - no documentaion of attack
+  #   end_time: "2019-05-14 17:09:59"
+  # - start_time: "2019-05-15 10:22:00" # attack failed 
+  #   end_time: "2019-05-15 15:55:59"
+  # - start_time: "2019-05-15 14:14:00" # attack failed 
+  #   end_time: "2019-05-15 15:14:59"
+  - start_time: "2019-05-15 15:39:00" # attack succeeded 
+    end_time: "2019-05-15 16:18:59"
+  - start_time: "2019-05-17 11:50:00" # attack succeeded 
+    end_time: "2019-05-17 15:31:59"
+  # - start_time: "2019-05-17 14:27:00" # attack failed
+  #   end_time: "2019-05-17 16:41:59"
+  - start_time: "2019-05-17 15:42:00" # attack succeeded
+    end_time: "2019-05-17 16:00:59"

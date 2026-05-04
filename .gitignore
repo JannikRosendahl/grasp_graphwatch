@@ -1,0 +1,14 @@
+.pytest_cache/
+.vscode/
+*__pycache__*
+*.pyc
+.env
+.DS_Store
+.venv/
+*.pt
+*.pth
+*.pkl
+run_all.sh
+data/*
+db_setup/.env
+

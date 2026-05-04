@@ -1,0 +1,16 @@
+C2938EE2-5F6B-A3E0-76AB-23D547077D6A,{'subject': 'kernel'},105052
+00000000-0000-0000-0000-00000116C454,{'subject': '/system/bin/dex2oat'},114607
+1B878418-54E9-D085-42F9-9A23918E815F,{'subject': 'kernel'},134630
+00000000-0000-0000-0000-0000013B358E,{'subject': '/system/bin/dex2oat'},144546
+00000000-0000-0000-0000-0000013B625A,{'subject': 'de.belu.appstarter'},144560
+00000000-0000-0000-0000-0000013B68A4,{'subject': '/data/data/de.belu.appstarter/busybox'},144563
+00000000-0000-0000-0000-0000013B68EC,{'subject': '/data/data/de.belu.appstarter/busybox'},144564
+00000000-0000-0000-0000-0000013B6902,{'subject': '/system/bin/toybox'},144565
+00000000-0000-0000-0000-0000013B88E6,{'subject': '/data/data/de.belu.appstarter/busybox'},144568
+00000000-0000-0000-0000-0000013B88F2,{'subject': '/system/bin/toybox'},144569
+00000000-0000-0000-0000-0000013B8936,{'subject': '/data/data/de.belu.appstarter/busybox'},144570
+00000000-0000-0000-0000-0000013B94E6,{'subject': '/data/local/tmp/sl'},144581
+00000000-0000-0000-0000-0000013B9558,{'subject': '/system/bin/toybox'},144583
+00000000-0000-0000-0000-0000013B95D8,{'subject': '/system/bin/toybox'},144585
+00000000-0000-0000-0000-0000013B965A,{'subject': '/system/bin/toybox'},144587
+00000000-0000-0000-0000-0000013B96DA,{'subject': '/system/bin/toybox'},144589
