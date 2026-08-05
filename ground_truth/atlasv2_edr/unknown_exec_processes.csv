@@ -1,0 +1,98 @@
+5549fba7-07ce-89a4-978d-5bc3950f9f7f,{'subject': 'c:\program files\common files\microsoft shared\dw\dw20.exe'},322
+1522b2ca-bc47-8768-9d4c-c0850c5da209,{'subject': 'c:\windows\system32\dwwin.exe'},335
+0a1de9b0-2c88-8ab0-832a-dea2b2fd7a0a,{'subject': 'c:\program files\common files\microsoft shared\dw\dw20.exe'},365
+176ded56-1d27-886b-9e9a-ecde655b9087,{'subject': 'c:\windows\system32\dwwin.exe'},366
+d1948e9c-961a-8733-b1a8-b8b191e40345,{'subject': 'c:\program files\common files\microsoft shared\dw\dw20.exe'},456
+64714156-1570-8edd-9c08-74cf8c21d4a1,{'subject': 'c:\windows\system32\dwwin.exe'},457
+c8b220a4-2ec1-84ca-b33d-d9a8c9af7a3a,{'subject': 'c:\windows\system32\defrag.exe'},42471
+8c0173ba-5877-8206-b913-7767b941c340,{'subject': 'c:\windows\system32\logonui.exe'},45595
+e17ed784-2962-8bd1-af69-6eebdf56f653,{'subject': 'c:\windows\system32\defrag.exe'},48024
+81c53530-be1b-8fb5-ac00-f6444ab8c2b2,{'subject': 'c:\windows\system32\defrag.exe'},54991
+576d2c66-ba46-87cf-b004-5c673001e2c1,{'subject': 'c:\windows\system32\mcbuilder.exe'},56879
+69a0ae36-6eab-8f7b-b68a-2c088396c419,{'subject': 'c:\program files\windows media player\setup_wm.exe'},87822
+d0d3855f-5eb2-8360-a13c-7092e2c0c251,{'subject': 'c:\windows\system32\unregmp2.exe'},87880
+680a4973-7bb9-867c-9b2b-01a174415618,{'subject': 'c:\windows\system32\unregmp2.exe'},87890
+8195dedc-5a7b-82b4-896f-c36b5aa70822,{'subject': 'c:\program files\windows media player\setup_wm.exe'},88157
+e7dc6cd2-a572-8d98-9dee-c5e6d6d077c7,{'subject': 'c:\program files\windows media player\wmpshare.exe'},88228
+963d59e8-6522-8126-9f2c-3f75c077cab7,{'subject': 'c:\windows\microsoft.net\framework\v2.0.50727\dw20.exe'},91072
+d7473216-a427-89f4-8cba-514744fa8a49,{'subject': 'c:\windows\system32\logonui.exe'},91262
+8c12d788-59e9-8201-8d57-e376553c67e9,{'subject': 'c:\windows\system32\taskmgr.exe'},91263
+06f441a8-e8b8-8ddb-8b3c-16958acb82a2,{'subject': 'c:\windows\system32\logonui.exe'},632564
+8ac3cd68-aa3b-8b8a-8166-01e59b805616,{'subject': 'c:\windows\system32\logonui.exe'},551949
+06ab50a2-c8b1-895d-8442-c392f6a77655,{'subject': 'c:\windows\system32\logonui.exe'},552015
+28621403-60f3-8bb7-9a04-333c710b3579,{'subject': 'c:\windows\system32\logonui.exe'},553192
+3d2ad924-d310-8c96-a037-35f79f7b4519,{'subject': 'c:\windows\system32\logonui.exe'},553198
+e7d59fd8-beeb-8d51-87bc-1821f91ffc2f,{'subject': 'c:\program files\mozilla firefox\plugin-container.exe'},566074
+44160df5-5971-8b92-9a0b-db8c1dbe572a,{'subject': 'c:\users\aalsahee\payload.exe'},567847
+cb6a58e3-b644-8699-a843-88d8a0dfc40e,{'subject': 'c:\users\aalsahee\payload.exe'},567919
+863b7e7f-c339-8880-b8e3-815293957487,{'subject': 'c:\program files\mozilla firefox\plugin-container.exe'},572735
+02e7ce09-9ee0-82db-a796-2d4b3d124267,{'subject': 'c:\users\aalsahee\payload.exe'},574368
+2c892262-44cb-82e9-8719-5af55b16ce65,{'subject': 'c:\users\aalsahee\payload.exe'},574454
+6bc72bd8-6ba2-8718-8a1a-b072e9d68810,{'subject': 'c:\program files\common files\microsoft shared\equation\eqnedt32.exe'},580174
+ef62cc8e-9e1b-89b4-949d-58c9cf25afcc,{'subject': 'c:\windows\system32\regsvr32.exe'},580177
+21a0a422-a8a1-84fb-8754-6f1a5b25df00,{'subject': 'c:\program files\common files\microsoft shared\equation\eqnedt32.exe'},580255
+13955f0d-0557-8ef9-a3d6-f02776cc289d,{'subject': 'c:\program files\common files\microsoft shared\equation\eqnedt32.exe'},580531
+e7863f61-68b8-8b8b-b00a-2ace463f6b0a,{'subject': 'c:\windows\system32\regsvr32.exe'},580533
+ecb5ab49-fc3a-8354-be29-f2cd651b879e,{'subject': 'c:\windows\system32\windowspowershell\v1.0\powershell.exe'},580539
+872720a9-f79b-86f9-ba05-8f4c412a1c02,{'subject': 'c:\windows\system32\regsvr32.exe'},580541
+a9e2533f-7fb8-8eab-9ca9-8de6af81583e,{'subject': 'c:\users\aalsahee\payload.exe'},580685
+95e0a792-2ef8-842e-98e0-6931505862ef,{'subject': 'c:\users\aalsahee\payload.exe'},580738
+bfb508a8-7a42-857c-b139-5179276b1847,{'subject': 'c:\windows\system32\logonui.exe'},585843
+3c722a00-4d0e-85c0-a4c8-e08c62b30137,{'subject': 'c:\windows\system32\logonui.exe'},585874
+45769e98-9ce8-8901-868a-7498420d8607,{'subject': 'c:\windows\system32\control.exe'},586195
+4d2312f1-36f6-866a-81f5-5c08f3261cca,{'subject': 'c:\windows\system32\control.exe'},586198
+7e64255d-b05d-80d7-bee5-daf73b0cf009,{'subject': 'c:\windows\system32\logonui.exe'},587910
+f4b8ef81-14ba-87fd-8b7d-59aacdef729e,{'subject': 'c:\program files\mozilla firefox\plugin-container.exe'},600346
+06497805-7002-83bf-ac5f-c1ca046b87c5,{'subject': 'c:\users\aalsahee\payload.exe'},600488
+83222520-1df3-85e5-b42a-890b0e248dfb,{'subject': 'c:\users\aalsahee\payload.exe'},600541
+17ec8141-32e6-87f2-8467-b423c072d02c,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},601339
+462dfb87-3af8-8f9c-9dd9-099f7d260313,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},601394
+6a22788e-bd46-8d25-b55f-e420f375889d,{'subject': 'c:\windows\system32\logonui.exe'},611019
+058bd0da-bd0b-8a7e-acdf-2eef60c28121,{'subject': 'c:\windows\system32\logonui.exe'},611024
+a76b396e-b2d0-80e9-8560-7b328d59863b,{'subject': 'c:\program files\mozilla firefox\plugin-container.exe'},616894
+cfd12562-2d40-80a4-8f16-aa9ea93a37a4,{'subject': 'c:\users\aalsahee\payload.exe'},617017
+607cc37c-f8c6-8df8-8f8c-14aad933ddb6,{'subject': 'c:\users\aalsahee\payload.exe'},617070
+375e7e3a-232e-8e6e-8cba-57cab01b2ac4,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},621280
+7f481d2f-ccbf-8d02-96f4-8eefc8c77d21,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},621336
+a699ed85-e886-8861-b1b4-0e214c95e295,{'subject': 'c:\program files\windows media player\setup_wm.exe'},621482
+e32940c0-d6ec-8e4e-b49a-80703698b172,{'subject': 'c:\windows\system32\unregmp2.exe'},621530
+52924264-d88b-8d86-b36c-935777bdc03e,{'subject': 'c:\windows\system32\unregmp2.exe'},621550
+997b11e2-1d98-881f-9f1b-886479e607c7,{'subject': 'c:\program files\windows media player\setup_wm.exe'},621814
+01ecbbe2-a7da-80ff-b524-31f8e10ddd3d,{'subject': 'c:\program files\mozilla firefox\plugin-container.exe'},630818
+4901b85d-9874-8400-a51c-65124efa15b7,{'subject': 'c:\users\aalsahee\payload.exe'},630975
+dccdbc93-1867-8d51-9bf9-5403c3cedc1a,{'subject': 'c:\users\aalsahee\payload.exe'},631028
+cbcd1a7b-0fed-8269-be4e-3cc05bd4d577,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},631457
+87140300-6cb9-84dd-b229-02b8039f8c05,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},631512
+12dc1b04-9551-8bed-94ed-dcff328ab4ab,{'subject': 'c:\windows\system32\logonui.exe'},632587
+80a811e5-3cdf-83fe-81b2-1d6ea9dc342b,{'subject': 'c:\users\aalsahee\payload.exe'},638416
+6fca9fdb-d1b8-806f-9d3d-eb26a7d0e731,{'subject': 'c:\users\aalsahee\payload.exe'},638469
+2267dbb1-1ce8-8502-97c4-5e2d669a5b38,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},638996
+e8aa658b-c80f-83f3-9023-3eb981c730c0,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},639080
+4954b37d-80ca-8e78-a5f4-b1529fa730e9,{'subject': 'c:\program files\windows media player\setup_wm.exe'},639765
+2e0add6c-480e-8249-bb03-cef711aee34a,{'subject': 'c:\windows\system32\mshta.exe'},644371
+e4c7e746-28f1-807a-8ef1-db12b1507040,{'subject': 'c:\windows\system32\mshta.exe'},646099
+578109f8-a5c3-8ad5-9fb4-e1208209bfce,{'subject': 'c:\windows\system32\mshta.exe'},648297
+1aa7b94f-c82b-8cc9-b8da-32e0393bb77d,{'subject': 'c:\windows\system32\windowspowershell\v1.0\powershell.exe'},648336
+dd7302bd-e4d9-895b-9a65-c7957cc6c9be,{'subject': 'c:\windows\system32\mshta.exe'},648338
+6416e1a8-d269-81ae-890c-e2f1756e4252,{'subject': 'c:\windows\system32\windowspowershell\v1.0\powershell.exe'},648373
+0821d4c2-5413-8ecb-8284-7ff65262f0a7,{'subject': 'c:\windows\system32\windowspowershell\v1.0\powershell.exe'},648375
+4e6dcf51-d7f5-8004-a110-feef22c4bf49,{'subject': 'c:\users\aalsahee\payload.exe'},648534
+934e2113-f94f-881d-8ed5-d27f34390ef9,{'subject': 'c:\users\aalsahee\payload.exe'},648587
+6746231b-b29e-8f6d-bfbd-68bd3232d236,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},649089
+2ffae8fd-9f95-8d15-bcc5-7e55248e133d,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},649148
+e6532a9a-65dd-8048-b380-b974e32a0205,{'subject': 'c:\program files\common files\microsoft shared\equation\eqnedt32.exe'},655331
+d55d435d-08d1-8108-b96c-77d2505dfb4f,{'subject': 'c:\windows\system32\regsvr32.exe'},655332
+6965491e-a24a-899c-b8e7-dfc71805bbc2,{'subject': 'c:\program files\common files\microsoft shared\equation\eqnedt32.exe'},655362
+60056e93-8075-856a-a7ea-5103281ca84d,{'subject': 'c:\windows\system32\windowspowershell\v1.0\powershell.exe'},655374
+39204b8a-bc32-8c10-b98f-1f5df9860090,{'subject': 'c:\windows\system32\regsvr32.exe'},655375
+ed1cfcc4-d191-8f2a-9038-6de61bd84220,{'subject': 'c:\users\aalsahee\payload.exe'},655554
+2edfe7e9-4f59-8f4f-b287-6fb4c7893339,{'subject': 'c:\users\aalsahee\payload.exe'},655606
+8a917e54-d9d1-894f-97df-9355b50bf455,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},656612
+d0ea8b2e-d82b-8f4e-aca9-2746cb38947a,{'subject': 'c:\users\aalsahee\downloads\payload.exe'},656684
+4a6d7061-a212-8c7e-b5da-53b816b08188,{'subject': 'c:\windows\system32\mshta.exe'},662944
+64cc22cf-68cc-8a21-b8d6-15902bfb63b9,{'subject': 'c:\windows\system32\windowspowershell\v1.0\powershell.exe'},662984
+b7e94d13-26d6-8864-9b4b-487dfeec20ec,{'subject': 'c:\windows\system32\mshta.exe'},662987
+fb4f5eee-817b-80ff-8218-627d1bce66da,{'subject': 'c:\windows\system32\windowspowershell\v1.0\powershell.exe'},662991
+e6cd0b48-5b8a-8db5-aa98-7ff727e0f26d,{'subject': 'c:\windows\system32\windowspowershell\v1.0\powershell.exe'},662993
+e8fc48de-7d63-817a-bea4-02ddb105ab7f,{'subject': 'c:\users\aalsahee\payload.exe'},663083
+d5d4b1f8-0a1a-8229-8c82-f7ca165431c6,{'subject': 'c:\users\aalsahee\payload.exe'},663136
