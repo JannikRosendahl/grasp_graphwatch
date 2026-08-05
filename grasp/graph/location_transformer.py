@@ -1,11 +1,11 @@
+import logging
 import math
 import re
-import logging
+from pathlib import Path
+
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from pathlib import Path
+from torch import nn, optim
 from torch.utils.data import DataLoader, Dataset
 
 from grasp.config import LocationTransformerConfig
@@ -29,11 +29,7 @@ class PositionalEncoding(nn.Module):
         div_term = torch.exp(
             torch.arange(0, d_model, 2).float()
             * (
-                -torch.log(
-                    torch.tensor(
-                        LocationTransformerConfig.POS_ENC_DIV_TERM_HYPERPARAM
-                    )
-                )
+                -torch.log(torch.tensor(LocationTransformerConfig.POS_ENC_DIV_TERM_HYPERPARAM))
                 / d_model
             )
         )
@@ -47,7 +43,7 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         seq_len = x.size(0)
-        pe_buffer = getattr(self, "pe")
+        pe_buffer = getattr(self, "pe")  # noqa: B009
         return x + pe_buffer[:seq_len, :]
 
 
@@ -75,9 +71,7 @@ class LocationDataset(Dataset):
         location = self.locations[idx][: self.max_length]
         idx_sequence = [self.char2idx.get(char, 0) for char in location]
         # Pad to max_length
-        idx_sequence += [self.padding_idx] * (
-            self.max_length - len(idx_sequence)
-        )
+        idx_sequence += [self.padding_idx] * (self.max_length - len(idx_sequence))
         return torch.tensor(idx_sequence, dtype=torch.long)
 
 
@@ -145,9 +139,7 @@ class TransformerAutoencoder(nn.Module):
                 batch = batch.to(device)
                 optimizer.zero_grad()
                 output = self.forward(batch)
-                loss = criterion(
-                    output.view(-1, self.input_dim), batch.view(-1)
-                )
+                loss = criterion(output.view(-1, self.input_dim), batch.view(-1))
                 loss.backward()
                 optimizer.step()
                 epoch_loss += loss.item()
@@ -168,10 +160,7 @@ class TransformerAutoencoder(nn.Module):
 
                 if epochs_no_improve >= patience:
                     logger.info(
-                        (
-                            "Early stopping triggered after epoch %d "
-                            "with best loss %.4f"
-                        ),
+                        ("Early stopping triggered after epoch %d with best loss %.4f"),
                         epoch + 1,
                         best_loss,
                     )
@@ -202,12 +191,8 @@ class TransformerAutoencoder(nn.Module):
     ) -> "TransformerAutoencoder":
         """Load model weights from disk."""
 
-        resolved_device = device or torch.device(
-            LocationTransformerConfig.DEVICE
-        )
-        model = cls(
-            input_dim, embedding_dim, hidden_dim, num_layers, nhead
-        ).to(resolved_device)
+        resolved_device = device or torch.device(LocationTransformerConfig.DEVICE)
+        model = cls(input_dim, embedding_dim, hidden_dim, num_layers, nhead).to(resolved_device)
         state_dict = torch.load(path, map_location=resolved_device)
         model.load_state_dict(state_dict)
         model.eval()
@@ -247,9 +232,7 @@ class Word2VecLocationEncoder:
             for token in tokens:
                 token_counts[token] = token_counts.get(token, 0) + 1
 
-        kept_tokens = sorted(
-            [t for t, c in token_counts.items() if c >= self.min_count]
-        )
+        kept_tokens = sorted([t for t, c in token_counts.items() if c >= self.min_count])
         self.id_to_token = ["<unk>"] + kept_tokens
         self.token_to_id = {t: i for i, t in enumerate(self.id_to_token)}
 
@@ -257,9 +240,7 @@ class Word2VecLocationEncoder:
         self.input_embeddings = self.rng.uniform(
             -scale, scale, size=(self.vocab_size, self.embedding_dim)
         )
-        self.output_embeddings = np.zeros(
-            (self.vocab_size, self.embedding_dim)
-        )
+        self.output_embeddings = np.zeros((self.vocab_size, self.embedding_dim))
 
         encoded_sequences: list[list[int]] = []
         for tokens in tokenized:
@@ -335,10 +316,7 @@ class Word2VecLocationEncoder:
     def encode_locations(self, locations: list[str]) -> np.ndarray:
         vectors: list[np.ndarray] = []
         for location in locations:
-            token_ids = [
-                self.token_to_id.get(token, 0)
-                for token in _tokenize_location(location)
-            ]
+            token_ids = [self.token_to_id.get(token, 0) for token in _tokenize_location(location)]
             if not token_ids:
                 token_ids = [0]
 
@@ -409,18 +387,15 @@ def train_transformer_autoencoder_model(
     input_dim: int = len(LocationTransformerConfig.CHARS)
 
     logger.info(
-        (
-            "Training transformer autoencoder (|paths|=%d, "
-            "embedding_dim=%d) on %s"
-        ),
+        ("Training transformer autoencoder (|paths|=%d, embedding_dim=%d) on %s"),
         len(dataset),
         embedding_dim,
         device,
     )
 
-    model: TransformerAutoencoder = TransformerAutoencoder(
-        input_dim, embedding_dim, hidden_dim
-    ).to(device)
+    model: TransformerAutoencoder = TransformerAutoencoder(input_dim, embedding_dim, hidden_dim).to(
+        device
+    )
     model.fit(
         train_loader,
         device,
@@ -524,9 +499,7 @@ def build_location_embeddings_from_file(
     device: torch.device,
 ) -> np.ndarray:
     if not model_file_path.exists():
-        raise FileNotFoundError(
-            f"Model file {model_file_path} does not exist."
-        )
+        raise FileNotFoundError(f"Model file {model_file_path} does not exist.")
 
     input_dim = len(LocationTransformerConfig.CHARS)
     model = TransformerAutoencoder.load(
@@ -538,9 +511,7 @@ def build_location_embeddings_from_file(
         nhead,
         device=device,
     )
-    logger.info(
-        "Loaded transformer autoencoder weights from %s", model_file_path
-    )
+    logger.info("Loaded transformer autoencoder weights from %s", model_file_path)
     return build_location_embeddings_from_model(
         model,
         paths,

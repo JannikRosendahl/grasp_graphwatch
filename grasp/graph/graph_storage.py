@@ -1,7 +1,7 @@
 import random
-import torch
-import json
 from pathlib import Path
+
+import torch
 
 
 class GraphStorage:
@@ -10,12 +10,8 @@ class GraphStorage:
         train_data_paths: list[str] | None = None,
         test_data_paths: list[str] | None = None,
     ) -> None:
-        self.train_data_paths: list[str] = (
-            train_data_paths if train_data_paths is not None else []
-        )
-        self.test_data_paths: list[str] = (
-            test_data_paths if test_data_paths is not None else []
-        )
+        self.train_data_paths: list[str] = train_data_paths if train_data_paths is not None else []
+        self.test_data_paths: list[str] = test_data_paths if test_data_paths is not None else []
         self.extended_train_data_paths: list[str] = []
         self.extended_test_data_paths: list[str] = []
         self.train_subject_cmds: list[str] = []
@@ -36,11 +32,9 @@ class GraphStorage:
         self.combined_cmd_to_id: dict[str, int] = {}
         self.combined_locations: list[str] = []
 
-    def save_graph_storage(
-        self, file_path: str = "./graph_storage.pt"
-    ) -> None:
-        file_path = Path(file_path)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
+    def save_graph_storage(self, file_path: str = "./graph_storage.pt") -> None:
+        file_path = Path(file_path)  # type: ignore
+        file_path.parent.mkdir(parents=True, exist_ok=True)  # type: ignore
         torch.save(self, file_path)
 
     def generate_shuffled_train_paths(self) -> list[str]:
@@ -58,8 +52,6 @@ def load_graph_storage(
 
     obj = torch.load(path, weights_only=False)
     if not isinstance(obj, GraphStorage):
-        raise TypeError(
-            f"Expected GraphStorage, but loaded object of type {type(obj)}"
-        )
+        raise TypeError(f"Expected GraphStorage, but loaded object of type {type(obj)}")
 
     return obj

@@ -1,21 +1,23 @@
+import logging
 import os.path as osp
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
+
+import numpy as np
 import pandas as pd
 import torch
-import numpy as np
 from torch_geometric.data import Data, InMemoryDataset
-import logging
 
 from grasp.db import connector
+from grasp.schema import EdgeColumns, NodeColumns, NodeType
 from grasp.utils.graph_helpers import (
+    generate_graph_basename,
     get_db_url,
     get_label_column_name_based_on_dataset,
-    get_operations,
     get_node_types,
+    get_operations,
     record_collection_to_df,
-    generate_graph_basename,
 )
-from grasp.schema import NodeType, EdgeColumns, NodeColumns
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -50,8 +52,8 @@ class GraspGraph(InMemoryDataset):
         processed_path = osp.join(self.processed_dir, self.file_name)
         if osp.exists(processed_path):
             self.load(processed_path)
-            logging.info(f"Loaded graph from {processed_path}.")
-            logging.info(
+            logger.info(f"Loaded graph from {processed_path}.")
+            logger.info(
                 f"Graph has {self.data.num_nodes} nodes, "
                 f"{self.data.num_edges} edges, and "
                 f"{self.data.subject_mask.sum().item()} subjects."
@@ -91,39 +93,23 @@ class GraspGraph(InMemoryDataset):
         nodes_df: pd.DataFrame = record_collection_to_df(nodes)
 
         if edges_df.empty or nodes_df.empty:
-            logger.warning(
-                f"No data found for time range "
-                f"{self.start_time} to {self.end_time}"
-            )
+            logger.warning(f"No data found for time range {self.start_time} to {self.end_time}")
             return
 
         index_id_to_idx = self._get_node_mapping(edges_df)
 
         # Ensure consistent types for mapping
-        nodes_df[NodeColumns.INDEX_ID.value] = nodes_df[
-            NodeColumns.INDEX_ID.value
-        ].astype(str)
-        nodes_df["idx"] = nodes_df[NodeColumns.INDEX_ID.value].map(
-            index_id_to_idx
-        )
+        nodes_df[NodeColumns.INDEX_ID.value] = nodes_df[NodeColumns.INDEX_ID.value].astype(str)
+        nodes_df["idx"] = nodes_df[NodeColumns.INDEX_ID.value].map(index_id_to_idx)
         nodes_df = nodes_df.sort_values("idx").reset_index(drop=True)
 
-        src = (
-            edges_df[EdgeColumns.SRC_INDEX_ID.value]
-            .astype(str)
-            .map(index_id_to_idx)
-        )
-        dst = (
-            edges_df[EdgeColumns.DST_INDEX_ID.value]
-            .astype(str)
-            .map(index_id_to_idx)
-        )
+        src = edges_df[EdgeColumns.SRC_INDEX_ID.value].astype(str).map(index_id_to_idx)
+        dst = edges_df[EdgeColumns.DST_INDEX_ID.value].astype(str).map(index_id_to_idx)
 
         edge_index: list[list[int]] = [src.tolist(), dst.tolist()]
 
         edge_types: list[int] = [
-            list(operations.values()).index(op)
-            for op in edges_df[EdgeColumns.OPERATION.value]
+            list(operations.values()).index(op) for op in edges_df[EdgeColumns.OPERATION.value]
         ]
 
         node_types: dict[int, str] = get_node_types()
@@ -132,29 +118,21 @@ class GraspGraph(InMemoryDataset):
             for node_type in nodes_df[NodeColumns.TYPE.value]
         ]
 
-        edge_index_tensor, edge_attr_tensor, x_tensor = (
-            self._transform_to_tensors(
-                edge_index,
-                edge_types,
-                operations_tuple,
-                node_types,
-                node_type_indices,
-            )
+        edge_index_tensor, edge_attr_tensor, x_tensor = self._transform_to_tensors(
+            edge_index,
+            edge_types,
+            operations_tuple,
+            node_types,
+            node_type_indices,
         )
         t_tensor: torch.Tensor = self._get_timestamps(edges_df)
-        node_labels_placeholder: torch.Tensor = torch.zeros(
-            nodes_df.shape[0], dtype=torch.long
-        )
+        node_labels_placeholder: torch.Tensor = torch.zeros(nodes_df.shape[0], dtype=torch.long)
         node_uuid: list[str] = nodes_df[NodeColumns.UUID.value].tolist()
-        node_index_id: list[int] = nodes_df[
-            NodeColumns.INDEX_ID.value
-        ].tolist()
+        node_index_id: list[int] = nodes_df[NodeColumns.INDEX_ID.value].tolist()
 
         node_location: list[str] = self._build_node_location(nodes_df)
 
-        subject_mask, node_cmd_labels = (
-            self._build_subject_mask_and_node_cmd_labels(nodes_df)
-        )
+        subject_mask, node_cmd_labels = self._build_subject_mask_and_node_cmd_labels(nodes_df)
         graph_data = Data(
             x=x_tensor,
             edge_index=edge_index_tensor,
@@ -167,9 +145,7 @@ class GraspGraph(InMemoryDataset):
             node_index_id=node_index_id,
             node_location=node_location,
         )
-        graph_data_bidirectional: Data = self._make_graph_bidirectional(
-            graph_data
-        )
+        graph_data_bidirectional: Data = self._make_graph_bidirectional(graph_data)
         logger.info(
             f"Graph processed with {graph_data_bidirectional.num_nodes} nodes, "
             f"{graph_data_bidirectional.num_edges} edges and "
@@ -193,9 +169,7 @@ class GraspGraph(InMemoryDataset):
         reverse_edge_attr = edge_attr.clone()
 
         # Combine original and reverse edges
-        combined_edge_index = torch.cat(
-            [edge_index, reverse_edge_index], dim=1
-        )
+        combined_edge_index = torch.cat([edge_index, reverse_edge_index], dim=1)
         combined_edge_attr = torch.cat([edge_attr, reverse_edge_attr], dim=0)
 
         data.edge_index = combined_edge_index
@@ -205,9 +179,7 @@ class GraspGraph(InMemoryDataset):
         return data
 
     def _get_timestamps(self, edges_df) -> torch.Tensor:
-        return torch.tensor(
-            edges_df["timestamp_rec"].tolist(), dtype=torch.float
-        )
+        return torch.tensor(edges_df["timestamp_rec"].tolist(), dtype=torch.float)
 
     def _build_node_location(self, nodes_df: pd.DataFrame) -> list[str]:
         # Create location for netflow nodes (dst_addr:dst_port)
@@ -246,10 +218,8 @@ class GraspGraph(InMemoryDataset):
 
         label_column_name: str = get_label_column_name_based_on_dataset()
         node_cmd_labels: list[str] = nodes_df[label_column_name].tolist()
-        node_cmd_labels = np.array(node_cmd_labels, dtype=object)
-        node_cmd_labels = np.where(
-            pd.isna(node_cmd_labels), "<NONE>", node_cmd_labels
-        ).tolist()
+        node_cmd_labels = np.array(node_cmd_labels, dtype=object)  # type: ignore
+        node_cmd_labels = np.where(pd.isna(node_cmd_labels), "<NONE>", node_cmd_labels).tolist()
 
         return subject_mask, node_cmd_labels
 
@@ -283,7 +253,4 @@ class GraspGraph(InMemoryDataset):
         dst_ids = edges_df[dst_col].astype(str)
 
         unique_index_ids = set(src_ids.unique()).union(dst_ids.unique())
-        return {
-            index_id: idx
-            for idx, index_id in enumerate(sorted(unique_index_ids))
-        }
+        return {index_id: idx for idx, index_id in enumerate(sorted(unique_index_ids))}

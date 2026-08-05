@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
-from grasp.utils.time_helpers import parse, fmt
+
+from grasp.utils.time_helpers import fmt, parse
 
 
 def create_train_and_test_windows(
