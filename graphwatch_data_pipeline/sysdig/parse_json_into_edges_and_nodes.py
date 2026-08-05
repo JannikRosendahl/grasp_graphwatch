@@ -6,7 +6,7 @@ import json
 import re
 import sqlite3
 import tempfile
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 # ------------------------------
@@ -76,7 +76,7 @@ def clean_name(value):
     return value
 
 
-@lru_cache(maxsize=None)
+@cache
 def numeric_field_pattern(key):
     return re.compile(PROCESS_NUMERIC_FIELD_TEMPLATE.format(key=re.escape(key)))
 
@@ -447,14 +447,13 @@ def make_edge(src, dst, action, timestamp, event, resource_value=None):
 
 
 def open_dedup_database():
-    temp = tempfile.NamedTemporaryFile(
+    with tempfile.NamedTemporaryFile(
         prefix="sysdig_edge_dedup_",
         suffix=".sqlite3",
         dir=OUTPUT_DIR,
         delete=False,
-    )
-    path = Path(temp.name)
-    temp.close()
+    ) as temp:
+        path = Path(temp.name)
     connection = sqlite3.connect(path)
     connection.execute("PRAGMA journal_mode = OFF")
     connection.execute("PRAGMA synchronous = OFF")
@@ -637,7 +636,6 @@ def main():
         raise SystemExit(f"[!] No .json, .jsonl, or .ndjson files found in {INPUT_DIR}")
 
     print(f"[*] Input files: {len(files)}")
-    print("[*] Sorting: disabled")
     print("[*] Pass 1: collecting nodes and process metadata")
     nodes, resolved_process_tids, pass1_count = collect_nodes(INPUT_DIR)
     print(f"[*] Pass 1 events:       {pass1_count:,}")

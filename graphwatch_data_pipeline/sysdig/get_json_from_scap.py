@@ -14,7 +14,7 @@ SCAP_DIR = Path("output/sysdig_scaps")
 
 
 # Output directory
-OUTPUT_DIR = BASE_DIR / "output" / "json"
+OUTPUT_DIR = BASE_DIR / "input" / "json"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 

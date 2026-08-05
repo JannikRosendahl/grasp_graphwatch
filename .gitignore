@@ -12,4 +12,6 @@ run_all.sh
 data/*
 db_setup/.env
 *.scap
-graphwatch_data_pipeline/sysdig/sysdig_scaps*
+graphwatch_data_pipeline/sysdig/input/*
+graphwatch_data_pipeline/sysdig/output/*
+graphwatch_data_pipeline/sysdig/.env_upload

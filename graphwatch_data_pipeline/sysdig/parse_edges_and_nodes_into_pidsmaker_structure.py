@@ -1,418 +1,70 @@
 #!/usr/bin/env python3
 
-import csv
-import html
-import json
-import re
-import sqlite3
-import tempfile
-from functools import lru_cache, cache
+"""Export normalized graph tables from parse_data.py nodes.csv and edges.csv.
+
+Input:
+    output/edges_and_nodes/nodes.csv
+    output/edges_and_nodes/edges.csv
+
+Output:
+    output/tables/subject_node_table.csv
+    output/tables/file_node_table.csv
+    output/tables/netflow_node_table.csv
+    output/tables/event_table/event_table_batch_00000.csv
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
+
+import pandas as pd
 
 # ------------------------------
 # CONFIG
 # ------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent
-INPUT_DIR = BASE_DIR / "output" / "json"
-OUTPUT_DIR = BASE_DIR / "output" / "edges_and_nodes"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-NODES_FILE = OUTPUT_DIR / "nodes.csv"
-EDGES_FILE = OUTPUT_DIR / "edges.csv"
-PROGRESS_INTERVAL = 1_000_000
-JSON_CHUNK_SIZE = 1024 * 1024
-
-# ------------------------------
-# Regex helpers
-# ------------------------------
-
-FD_RE = re.compile(r"fd=(?P<fd>-?\d+)\((?P<tag><[^>]+>)(?P<value>[^)]*)\)")
-NAME_RE = re.compile(r"\bname=(?P<name>(\"[^\"]+\"|'[^']+'|\S+))")
-TUPLE_RE = re.compile(r"\btuple=(?P<tuple>\S+)")
-EXE_RE = re.compile(r"\bexe=(?P<exe>\S+)")
-COMM_RE = re.compile(r"\bcomm=(?P<comm>\S+)")
-SIZE_RE = re.compile(r"\bsize=(?P<size>\d+)")
-DATA_RE = re.compile(r"\bdata=(?P<data>.*?)(?:\s+fd=|\s+size=|\s+tuple=|$)")
-PROCESS_NUMERIC_FIELD_TEMPLATE = r"\b{key}=(?P<value>-?\d+)(?:\([^)]*\))?"
-
-# ------------------------------
-# Node helpers
-# ------------------------------
-
-
-def proc_node(tid):
-    return f"proc:{tid}"
-
-
-def file_node(path):
-    return f"file:{path}"
-
-
-def socket_node(addr):
-    return f"socket:{addr}"
-
-
-# ------------------------------
-# General helpers
-# ------------------------------
-
-
-def normalize_event(event):
-    normalized = {}
-    for key, value in event.items():
-        if isinstance(value, str):
-            value = html.unescape(html.unescape(value))
-        normalized[key] = value
-    return normalized
-
-
-def clean_name(value):
-    if value is None:
-        return None
-    value = value.strip()
-    if len(value) >= 2 and value[0] in ("'", '"') and value[-1] == value[0]:
-        value = value[1:-1]
-    return value
-
-
-@cache
-def numeric_field_pattern(key):
-    return re.compile(PROCESS_NUMERIC_FIELD_TEMPLATE.format(key=re.escape(key)))
-
-
-def extract_numeric_field(info, key):
-    match = numeric_field_pattern(key).search(info)
-    return int(match.group("value")) if match else None
-
-
-def extract_exe(info):
-    match = EXE_RE.search(info)
-    return match.group("exe") if match else None
-
-
-def extract_comm(info):
-    match = COMM_RE.search(info)
-    return match.group("comm") if match else None
-
-
-def extract_size(info):
-    match = SIZE_RE.search(info)
-    return int(match.group("size")) if match else None
-
-
-def extract_data_preview(info, max_len=120):
-    match = DATA_RE.search(info)
-    if not match:
-        return ""
-    data = match.group("data").strip()
-    return data[:max_len] + "..." if len(data) > max_len else data
-
-
-def extract_process_identity(event):
-    info = event.get("evt.info", "")
-    tid = event.get("thread.tid")
-    if tid is None:
-        tid = extract_numeric_field(info, "tid")
-    if tid is not None:
-        try:
-            tid = int(tid)
-        except (TypeError, ValueError):
-            tid = None
-    return {
-        "tid": tid,
-        "pid": extract_numeric_field(info, "pid"),
-        "ptid": extract_numeric_field(info, "ptid"),
-        "exe": extract_exe(info),
-        "comm": extract_comm(info),
-        "proc_name": event.get("proc.name"),
-    }
-
-
-# ------------------------------
-# Resource parsing
-# ------------------------------
-
-
-def extract_fd_resource(info):
-    match = FD_RE.search(info)
-    if not match:
-        return None, None, None
-    fd = int(match.group("fd"))
-    tag = match.group("tag")
-    value = match.group("value").strip()
-    fd_tag = tag.strip("<>")
-    if fd_tag in ("f", "d"):
-        return fd, "file", value
-    if "->" in value:
-        return fd, "socket", value
-    return fd, "fd", value
-
-
-def extract_name_resource(info):
-    match = NAME_RE.search(info)
-    if not match:
-        return None, None
-    name = clean_name(match.group("name"))
-    return ("file", name) if name else (None, None)
-
-
-def extract_tuple_resource(info):
-    match = TUPLE_RE.search(info)
-    if not match:
-        return None, None
-    return "socket", match.group("tuple")
-
-
-def extract_resource(info):
-    fd, resource_type, resource_value = extract_fd_resource(info)
-    if fd is not None:
-        return fd, resource_type, resource_value
-    resource_type, resource_value = extract_name_resource(info)
-    if resource_type:
-        return None, resource_type, resource_value
-    resource_type, resource_value = extract_tuple_resource(info)
-    if resource_type:
-        return None, resource_type, resource_value
-    return None, None, None
-
-
-# ------------------------------
-# Streaming event input
-# ------------------------------
-
-
-def discover_input_files(input_dir):
-    files = {
-        path for pattern in ("*.json", "*.jsonl", "*.ndjson") for path in input_dir.glob(pattern)
-    }
-    return sorted(files)
-
-
-def iter_json_values(file_path, chunk_size=JSON_CHUNK_SIZE):
-    """Stream a JSON array, one JSON object, or adjacent JSON/JSONL values."""
-    decoder = json.JSONDecoder()
-    with file_path.open("r", encoding="utf-8", errors="replace") as handle:
-        buffer = ""
-        pos = 0
-        eof = False
-        array_mode = None
-        array_finished = False
-
-        while True:
-            if not eof and (len(buffer) - pos < chunk_size // 2):
-                chunk = handle.read(chunk_size)
-                if chunk:
-                    buffer = buffer[pos:] + chunk
-                    pos = 0
-                else:
-                    eof = True
-
-            while pos < len(buffer) and buffer[pos].isspace():
-                pos += 1
-
-            if array_mode is None:
-                if pos >= len(buffer):
-                    if eof:
-                        return
-                    continue
-                array_mode = buffer[pos] == "["
-                if array_mode:
-                    pos += 1
-
-            while pos < len(buffer) and (
-                buffer[pos].isspace() or (array_mode and buffer[pos] == ",")
-            ):
-                pos += 1
-
-            if array_mode and pos < len(buffer) and buffer[pos] == "]":
-                pos += 1
-                array_finished = True
-                return
-
-            if pos >= len(buffer):
-                if eof:
-                    if array_mode and not array_finished:
-                        raise ValueError(f"Unterminated JSON array in {file_path}")
-                    return
-                continue
-
-            try:
-                value, end = decoder.raw_decode(buffer, pos)
-            except json.JSONDecodeError as exc:
-                if eof:
-                    raise ValueError(
-                        f"Invalid JSON in {file_path} near character {pos}: {exc}"
-                    ) from exc
-                chunk = handle.read(chunk_size)
-                if chunk:
-                    buffer += chunk
-                    continue
-                eof = True
-                continue
-
-            pos = end
-            yield value
-
-
-def iter_events_from_file(file_path):
-    """Stream valid events in exactly the order stored in the source file."""
-    item_number = 0
-    try:
-        for value in iter_json_values(file_path):
-            item_number += 1
-            if not isinstance(value, dict) or "evt.outputtime" not in value:
-                continue
-            event = normalize_event(value)
-            event["_source_file"] = file_path.name
-            event["_line_no"] = item_number
-            yield event
-    except OSError as exc:
-        raise RuntimeError(f"Could not read {file_path}: {exc}") from exc
-
-
-def iter_all_events(input_dir):
-    """
-    Stream files in deterministic filename order and preserve the event order
-    found inside each file. No sorting or temporary sorted runs are used.
-    """
-    for file_path in discover_input_files(input_dir):
-        print(f"[*] Reading: {file_path.name}")
-        yield from iter_events_from_file(file_path)
-
-
-# ------------------------------
-# Node and process helpers
-# ------------------------------
-
-
-def add_node(nodes, node_id, node_type, name, extra=None):
-    if node_id not in nodes:
-        nodes[node_id] = {"id": node_id, "type": node_type, "name": name}
-    elif name:
-        nodes[node_id]["name"] = name
-    if extra:
-        for key, value in extra.items():
-            if value is not None:
-                nodes[node_id][key] = value
-
-
-def ensure_process(processes, tid):
-    if tid not in processes:
-        processes[tid] = {
-            "tid": tid,
-            "pid": None,
-            "ptid": None,
-            "exe": None,
-            "comm": None,
-            "proc_name": None,
-            "first_seen": None,
-            "last_seen": None,
-            "exited": None,
-            "exit_timestamp": None,
-        }
-    return processes[tid]
-
-
-def update_process_from_event(processes, event):
-    identity = extract_process_identity(event)
-    tid = identity["tid"]
-    if tid is None:
-        return None
-    proc = ensure_process(processes, tid)
-    timestamp = event.get("evt.outputtime")
-    if proc["first_seen"] is None:
-        proc["first_seen"] = timestamp
-    proc["last_seen"] = timestamp
-    for key in ("pid", "ptid", "exe", "comm", "proc_name"):
-        value = identity.get(key)
-        if value is not None:
-            proc[key] = value
-    return tid
-
-
-# ------------------------------
-# Pass 1: collect all nodes
-# ------------------------------
-
-
-def collect_nodes(input_dir):
-    nodes = {}
-    processes = {}
-    event_count = 0
-
-    for event in iter_all_events(input_dir):
-        event_count += 1
-        evt_type = event.get("evt.type")
-        evt_info = event.get("evt.info", "")
-        timestamp = event.get("evt.outputtime")
-        tid = update_process_from_event(processes, event)
-        if tid is None:
-            continue
-
-        if evt_type in ("clone", "fork", "vfork"):
-            child_tid = extract_numeric_field(evt_info, "res")
-            if child_tid is not None and child_tid > 0:
-                ensure_process(processes, child_tid)
-            continue
-
-        if evt_type in ("execve", "execveat"):
-            executable = extract_exe(evt_info)
-            if executable:
-                ensure_process(processes, tid)["exe"] = executable
-                add_node(nodes, file_node(executable), "file", executable)
-            continue
-
-        if evt_type in ("exit", "exit_group"):
-            process = ensure_process(processes, tid)
-            process["exited"] = "true"
-            process["exit_timestamp"] = timestamp
-            continue
-
-        _, resource_type, resource_value = extract_resource(evt_info)
-        if resource_type == "file" and resource_value:
-            add_node(nodes, file_node(resource_value), "file", resource_value)
-        elif resource_type == "socket" and resource_value:
-            add_node(nodes, socket_node(resource_value), "socket", resource_value)
-
-        if event_count % PROGRESS_INTERVAL == 0:
-            print(
-                f"[*] Pass 1 events: {event_count:,}, nodes: {len(nodes):,}, "
-                f"processes: {len(processes):,}"
-            )
-
-    resolved_process_tids = set()
-    for tid, process in processes.items():
-        executable = process.get("exe")
-        if not executable:
-            continue
-        add_node(
-            nodes,
-            proc_node(tid),
-            "process",
-            executable,
-            extra={
-                "tid": tid,
-                "pid": process.get("pid"),
-                "ptid": process.get("ptid"),
-                "comm": process.get("comm"),
-                "proc_name": process.get("proc_name"),
-                "first_seen": process.get("first_seen"),
-                "last_seen": process.get("last_seen"),
-                "exited": process.get("exited"),
-                "exit_timestamp": process.get("exit_timestamp"),
-            },
-        )
-        resolved_process_tids.add(tid)
-
-    return nodes, resolved_process_tids, event_count
-
-
-# ------------------------------
-# Pass 2: stream edges to CSV
-# ------------------------------
-
-EDGE_FIELDNAMES = [
+INPUT_DIR = BASE_DIR / "output" / "edges_and_nodes"
+OUTPUT_DIR = BASE_DIR / "output" / "tables"
+EVENT_DIR = OUTPUT_DIR / "event_table"
+
+NODES_FILE = INPUT_DIR / "nodes.csv"
+EDGES_FILE = INPUT_DIR / "edges.csv"
+
+
+# Operations produced by parse_data.py.
+# Keep this list lowercase.
+EDGE_OPERATION_FILTERS = {
+    "accept",
+    "close",
+    "connect",
+    "exec",
+    "execve",
+    "fork",
+    "clone",
+    "open",
+    "read",
+    "recv",
+    "send",
+    "spawn",
+    "write",
+    "exit",
+}
+
+
+NODE_INPUT_COLUMNS = [
+    "id",
+    "type",
+    "name",
+    "tid",
+    "exited",
+    "exit_timestamp",
+]
+
+
+EDGE_INPUT_COLUMNS = [
     "src",
     "dst",
     "action",
@@ -428,228 +80,491 @@ EDGE_FIELDNAMES = [
 ]
 
 
-def make_edge(src, dst, action, timestamp, event, resource_value=None):
-    size = extract_size(event.get("evt.info", ""))
-    return {
-        "src": src,
-        "dst": dst,
-        "action": action,
-        "timestamp": timestamp,
-        "evt_num": event.get("evt.num"),
-        "syscall": event.get("evt.type"),
-        "direction": event.get("evt.dir"),
-        "proc_name": event.get("proc.name"),
-        "thread_tid": event.get("thread.tid"),
-        "resource": resource_value or "",
-        "size": size if size is not None else "",
-        "source_file": event.get("_source_file", ""),
-    }
+SUBJECT_COLUMNS = [
+    "node_uuid",
+    "hash_id",
+    "path",
+    "cmd",
+    "index_id",
+]
 
 
-def open_dedup_database():
-    with tempfile.NamedTemporaryFile(
-        prefix="sysdig_edge_dedup_",
-        suffix=".sqlite3",
-        dir=OUTPUT_DIR,
-        delete=False,
-    ) as temp:
-        path = Path(temp.name)
-    connection = sqlite3.connect(path)
-    connection.execute("PRAGMA journal_mode = OFF")
-    connection.execute("PRAGMA synchronous = OFF")
-    connection.execute("PRAGMA temp_store = FILE")
-    connection.execute("CREATE TABLE seen (edge_key TEXT PRIMARY KEY) WITHOUT ROWID")
-    return connection, path
+FILE_COLUMNS = [
+    "node_uuid",
+    "hash_id",
+    "path",
+    "index_id",
+]
 
 
-def write_edge_if_new(writer, dedup_connection, edge):
-    key = json.dumps(
-        [edge["src"], edge["dst"], edge["action"], edge["timestamp"], edge["evt_num"]],
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
-    cursor = dedup_connection.execute("INSERT OR IGNORE INTO seen(edge_key) VALUES (?)", (key,))
-    if cursor.rowcount == 0:
-        return False
-    writer.writerow(edge)
-    return True
+NETFLOW_COLUMNS = [
+    "node_uuid",
+    "hash_id",
+    "src_addr",
+    "src_port",
+    "dst_addr",
+    "dst_port",
+    "index_id",
+]
 
 
-def process_and_write_edges(input_dir, resolved_process_tids):
-    fd_table = {}
-    edge_count = 0
-    event_count = 0
-    dedup_connection, dedup_path = open_dedup_database()
+EVENT_COLUMNS = [
+    "src_node",
+    "src_index_id",
+    "operation",
+    "dst_node",
+    "dst_index_id",
+    "event_uuid",
+    "timestamp_rec",
+    "_id",
+]
+
+
+# ------------------------------
+# BASIC HELPERS
+# ------------------------------
+
+
+def _read_csv_required(path: Path) -> pd.DataFrame:
+    """Read a required CSV file using pandas string dtype."""
+    if not path.exists():
+        raise FileNotFoundError(f"Required input file not found: {path}")
 
     try:
-        with EDGES_FILE.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=EDGE_FIELDNAMES, extrasaction="ignore")
-            writer.writeheader()
+        return pd.read_csv(path, dtype="string")
+    except pd.errors.EmptyDataError as exc:
+        raise ValueError(f"CSV file exists but is empty: {path}") from exc
 
-            for event in iter_all_events(input_dir):
-                event_count += 1
-                evt_type = event.get("evt.type")
-                evt_info = event.get("evt.info", "")
-                direction = event.get("evt.dir")
-                timestamp = event.get("evt.outputtime")
-                tid = extract_process_identity(event)["tid"]
-                if tid is None:
-                    continue
 
-                fd_table.setdefault(tid, {})
-                process_id = proc_node(tid)
+def _ensure_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    """Ensure that all expected columns exist."""
+    for column in columns:
+        if column not in df.columns:
+            df[column] = pd.NA
+    return df
 
-                if evt_type in ("clone", "fork", "vfork"):
-                    child_tid = extract_numeric_field(evt_info, "res")
-                    if child_tid is not None and child_tid > 0:
-                        fd_table.setdefault(child_tid, dict(fd_table.get(tid, {})))
-                        if tid in resolved_process_tids and child_tid in resolved_process_tids:
-                            edge = make_edge(
-                                proc_node(tid),
-                                proc_node(child_tid),
-                                evt_type,
-                                timestamp,
-                                event,
-                                str(child_tid),
-                            )
-                            edge_count += write_edge_if_new(writer, dedup_connection, edge)
-                    continue
 
-                if evt_type in ("execve", "execveat"):
-                    executable = extract_exe(evt_info)
-                    if executable and tid in resolved_process_tids:
-                        edge = make_edge(
-                            process_id,
-                            file_node(executable),
-                            "exec",
-                            timestamp,
-                            event,
-                            executable,
-                        )
-                        edge_count += write_edge_if_new(writer, dedup_connection, edge)
-                    continue
+def _safe_string(value, default: str = "") -> str:
+    """Convert a value to a safe stripped string, handling pd.NA first."""
+    if pd.isna(value):
+        return default
 
-                if evt_type in ("exit", "exit_group"):
-                    continue
+    text = str(value).strip()
 
-                fd, resource_type, resource_value = extract_resource(evt_info)
-                if fd is not None and resource_type and resource_value:
-                    fd_table[tid][fd] = (resource_type, resource_value)
-                if fd is not None and (not resource_type or not resource_value):
-                    stored = fd_table[tid].get(fd)
-                    if stored:
-                        resource_type, resource_value = stored
+    if text == "":
+        return default
 
-                edge_spec = None
-                if resource_type == "file" and resource_value:
-                    resource_id = file_node(resource_value)
-                    if evt_type == "read" and direction == "<":
-                        edge_spec = (resource_id, process_id, "read")
-                    elif evt_type == "write" and direction == "<":
-                        edge_spec = (process_id, resource_id, "write")
-                    elif evt_type in ("open", "openat") and direction == "<":
-                        edge_spec = (process_id, resource_id, "open")
-                    elif evt_type == "close" and direction == "<":
-                        edge_spec = (process_id, resource_id, "close")
-                elif resource_type == "socket" and resource_value:
-                    resource_id = socket_node(resource_value)
-                    if evt_type == "recvfrom" and direction == "<":
-                        edge_spec = (resource_id, process_id, "recv")
-                    elif evt_type == "sendto" and direction == "<":
-                        edge_spec = (process_id, resource_id, "send")
-                    elif evt_type == "read" and direction == "<":
-                        edge_spec = (resource_id, process_id, "recv")
-                    elif evt_type == "write" and direction == "<":
-                        edge_spec = (process_id, resource_id, "send")
-                    elif evt_type == "connect" and direction == "<":
-                        edge_spec = (process_id, resource_id, "connect")
-                    elif evt_type in ("accept", "accept4") and direction == "<":
-                        edge_spec = (resource_id, process_id, "accept")
-                    elif evt_type == "close" and direction == "<":
-                        edge_spec = (process_id, resource_id, "close")
+    return text
 
-                if edge_spec and tid in resolved_process_tids:
-                    edge = make_edge(
-                        edge_spec[0],
-                        edge_spec[1],
-                        edge_spec[2],
-                        timestamp,
-                        event,
-                        resource_value,
-                    )
-                    edge_count += write_edge_if_new(writer, dedup_connection, edge)
 
-                if evt_type == "close" and fd is not None:
-                    fd_table[tid].pop(fd, None)
+def _strip_node_prefix(node_id: str, prefix: str) -> str:
+    """Remove a node prefix like file: or socket: if present."""
+    if node_id.startswith(prefix):
+        return node_id[len(prefix) :]
+    return node_id
 
-                if event_count % PROGRESS_INTERVAL == 0:
-                    dedup_connection.commit()
-                    print(f"[*] Pass 2 events: {event_count:,}, edges written: {edge_count:,}")
 
-        dedup_connection.commit()
-    finally:
-        dedup_connection.close()
-        try:
-            dedup_path.unlink()
-        except OSError:
-            pass
+def _write_table(df: pd.DataFrame, output_file: Path, columns: list[str]) -> None:
+    """Write only selected columns, creating missing columns if needed."""
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    return edge_count, event_count
+    for column in columns:
+        if column not in df.columns:
+            df[column] = pd.NA
+
+    df.loc[:, columns].to_csv(output_file, index=False)
+    print(f"saved {len(df)} rows to {output_file}")
 
 
 # ------------------------------
-# Save nodes
+# TIMESTAMP HANDLING
 # ------------------------------
 
 
-def save_nodes(nodes):
-    fieldnames = [
-        "id",
-        "type",
+def _normalize_timestamp_to_ns(value):
+    """Normalize timestamp values to nanoseconds.
+
+    parse_data.py normally writes Sysdig evt.outputtime directly.
+    That value is already nanoseconds, for example:
+
+        1781597042007568406
+
+    This function also accepts seconds, milliseconds, and microseconds.
+    """
+    text = _safe_string(value)
+
+    if text == "":
+        return pd.NA
+
+    try:
+        number = Decimal(text)
+    except InvalidOperation:
+        return pd.NA
+
+    try:
+        ts = int(number)
+    except (TypeError, ValueError, OverflowError):
+        return pd.NA
+
+    # Already nanoseconds.
+    if ts >= 10**17:
+        return ts
+
+    # Microseconds.
+    if ts >= 10**14:
+        return ts * 1_000
+
+    # Milliseconds.
+    if ts >= 10**11:
+        return ts * 1_000_000
+
+    # Seconds.
+    return ts * 1_000_000_000
+
+
+# ------------------------------
+# SOCKET / NETFLOW HANDLING
+# ------------------------------
+
+
+def _split_host_port(endpoint) -> tuple[str, str]:
+    """Split an endpoint into host and port.
+
+    Examples:
+        141.71.30.148:137      -> 141.71.30.148, 137
+        [::1]:443              -> ::1, 443
+        /tmp/socket            -> /tmp/socket, ""
+
+    This function is safe for pd.NA.
+    """
+    endpoint_text = _safe_string(endpoint)
+
+    if endpoint_text == "":
+        return "", ""
+
+    # Bracketed IPv6 form: [::1]:443
+    if endpoint_text.startswith("[") and "]:" in endpoint_text:
+        host, port = endpoint_text.rsplit("]:", 1)
+        host = host.lstrip("[")
+        return host.strip(), port.strip()
+
+    # Normal IPv4 or hostname with port.
+    if ":" in endpoint_text:
+        host, port = endpoint_text.rsplit(":", 1)
+        return host.strip(), port.strip()
+
+    return endpoint_text, ""
+
+
+def _parse_socket_name(socket_name) -> tuple[str, str, str, str]:
+    """Parse socket node names from parse_data.py.
+
+    Expected examples:
+        141.71.30.148:137->141.71.31.198:137
+        141.71.30.148:137
+        socket:141.71.30.148:137->141.71.31.198:137
+
+    Returns:
+        src_addr, src_port, dst_addr, dst_port
+    """
+    socket_text = _safe_string(socket_name)
+
+    if socket_text == "":
+        return "", "", "", ""
+
+    socket_text = _strip_node_prefix(socket_text, "socket:")
+
+    if "->" not in socket_text:
+        src_addr, src_port = _split_host_port(socket_text)
+        return src_addr, src_port, "", ""
+
+    left, right = socket_text.split("->", 1)
+
+    src_addr, src_port = _split_host_port(left)
+    dst_addr, dst_port = _split_host_port(right)
+
+    return src_addr, src_port, dst_addr, dst_port
+
+
+# ------------------------------
+# NODE TABLE PREPARATION
+# ------------------------------
+
+
+def _prepare_node_frame() -> pd.DataFrame:
+    """Load nodes.csv and create normalized node metadata."""
+    node_df = _read_csv_required(NODES_FILE)
+    node_df = _ensure_columns(node_df, NODE_INPUT_COLUMNS)
+
+    print(f"loaded {len(node_df)} raw nodes")
+
+    node_df["id"] = node_df["id"].map(_safe_string)
+    node_df = node_df[node_df["id"].ne("")].copy()
+
+    node_df = node_df.drop_duplicates(subset=["id"]).reset_index(drop=True)
+
+    print(f"{len(node_df)} unique valid nodes remain")
+
+    node_df["node_uuid"] = node_df["id"]
+    node_df["hash_id"] = node_df["id"]
+
+    node_df["index_id"] = pd.RangeIndex(
+        start=0,
+        stop=len(node_df),
+        step=1,
+    )
+
+    node_df["type_norm"] = node_df["type"].fillna("").str.lower().str.strip()
+
+    # Make name reliable.
+    node_df["name"] = node_df["name"].fillna("").astype("string")
+
+    # If name is empty, derive it from id.
+    missing_name = node_df["name"].fillna("").str.strip().eq("")
+
+    node_df.loc[
+        missing_name & node_df["id"].str.startswith("file:"),
         "name",
-        "tid",
-        "pid",
-        "ptid",
-        "comm",
-        "proc_name",
-        "first_seen",
-        "last_seen",
-        "exited",
-        "exit_timestamp",
+    ] = node_df.loc[
+        missing_name & node_df["id"].str.startswith("file:"),
+        "id",
+    ].map(lambda x: _strip_node_prefix(str(x), "file:"))
+
+    node_df.loc[
+        missing_name & node_df["id"].str.startswith("socket:"),
+        "name",
+    ] = node_df.loc[
+        missing_name & node_df["id"].str.startswith("socket:"),
+        "id",
+    ].map(lambda x: _strip_node_prefix(str(x), "socket:"))
+
+    node_df.loc[
+        missing_name & node_df["id"].str.startswith("proc:"),
+        "name",
+    ] = node_df.loc[
+        missing_name & node_df["id"].str.startswith("proc:"),
+        "id",
     ]
-    with NODES_FILE.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(nodes.values())
+
+    return node_df
+
+
+def _build_subject_node_table(node_df: pd.DataFrame) -> None:
+    """Build process / subject table."""
+    subject_df = node_df[node_df["type_norm"].eq("process")].copy()
+
+    subject_df["cmd"] = subject_df["name"].fillna("unknown")
+
+    subject_df["path"] = subject_df["name"].where(
+        subject_df["name"].fillna("").str.startswith("/"),
+        "",
+    )
+
+    _write_table(
+        subject_df,
+        OUTPUT_DIR / "subject_node_table.csv",
+        SUBJECT_COLUMNS,
+    )
+
+
+def _build_file_node_table(node_df: pd.DataFrame) -> None:
+    """Build file node table."""
+    file_df = node_df[node_df["type_norm"].eq("file")].copy()
+
+    file_df["path"] = file_df["name"].fillna("")
+
+    _write_table(
+        file_df,
+        OUTPUT_DIR / "file_node_table.csv",
+        FILE_COLUMNS,
+    )
+
+
+def _build_netflow_node_table(node_df: pd.DataFrame) -> None:
+    """Build network flow / socket table."""
+    netflow_df = node_df[node_df["type_norm"].eq("socket")].copy()
+
+    if netflow_df.empty:
+        netflow_df["src_addr"] = pd.Series(dtype="string")
+        netflow_df["src_port"] = pd.Series(dtype="string")
+        netflow_df["dst_addr"] = pd.Series(dtype="string")
+        netflow_df["dst_port"] = pd.Series(dtype="string")
+
+        _write_table(
+            netflow_df,
+            OUTPUT_DIR / "netflow_node_table.csv",
+            NETFLOW_COLUMNS,
+        )
+        return
+
+    parsed = netflow_df["name"].apply(_parse_socket_name)
+
+    netflow_df["src_addr"] = parsed.apply(lambda item: item[0])
+    netflow_df["src_port"] = parsed.apply(lambda item: item[1])
+    netflow_df["dst_addr"] = parsed.apply(lambda item: item[2])
+    netflow_df["dst_port"] = parsed.apply(lambda item: item[3])
+
+    _write_table(
+        netflow_df,
+        OUTPUT_DIR / "netflow_node_table.csv",
+        NETFLOW_COLUMNS,
+    )
+
+
+def _build_node_tables(node_df: pd.DataFrame) -> None:
+    _build_subject_node_table(node_df)
+    _build_file_node_table(node_df)
+    _build_netflow_node_table(node_df)
+
+
+def _build_vertex_index_map(node_df: pd.DataFrame) -> pd.Series:
+    """Map node id to index id."""
+    return node_df.set_index("id")["index_id"]
 
 
 # ------------------------------
-# Main
+# EVENT TABLE PREPARATION
 # ------------------------------
 
 
-def main():
-    print(f"[*] Input directory:  {INPUT_DIR}")
-    print(f"[*] Output directory: {OUTPUT_DIR}")
-    files = discover_input_files(INPUT_DIR)
-    if not files:
-        raise SystemExit(f"[!] No .json, .jsonl, or .ndjson files found in {INPUT_DIR}")
+def _make_event_uuid(edge_df: pd.DataFrame) -> pd.Series:
+    """Create stable event UUIDs.
 
-    print(f"[*] Input files: {len(files)}")
-    print("[*] Pass 1: collecting nodes and process metadata")
-    nodes, resolved_process_tids, pass1_count = collect_nodes(INPUT_DIR)
-    print(f"[*] Pass 1 events:       {pass1_count:,}")
-    print(f"[*] Resolved processes:  {len(resolved_process_tids):,}")
-    print(f"[*] Collected nodes:     {len(nodes):,}")
+    Prefer:
+        source_file:evt_num
 
-    save_nodes(nodes)
-    print(f"[*] Nodes written: {len(nodes):,} -> {NODES_FILE}")
+    Fallback:
+        event:<row_number>
+    """
+    source_file = edge_df["source_file"].fillna("").astype("string").str.strip()
+    evt_num = edge_df["evt_num"].fillna("").astype("string").str.strip()
 
-    print("[*] Pass 2: streaming and deduplicating edges")
-    edge_count, pass2_count = process_and_write_edges(INPUT_DIR, resolved_process_tids)
-    print(f"[*] Pass 2 events: {pass2_count:,}")
-    print(f"[*] Edges written: {edge_count:,} -> {EDGES_FILE}")
-    print("[*] Provenance graph exported")
+    base_uuid = source_file + ":" + evt_num
+
+    fallback_uuid = pd.Series(
+        [f"event:{i}" for i in range(len(edge_df))],
+        index=edge_df.index,
+        dtype="string",
+    )
+
+    valid_base = evt_num.ne("") | source_file.ne("")
+
+    return base_uuid.where(valid_base, fallback_uuid)
+
+
+def _prepare_edge_frame() -> pd.DataFrame:
+    """Load and clean edges.csv."""
+    edge_df = _read_csv_required(EDGES_FILE)
+    edge_df = _ensure_columns(edge_df, EDGE_INPUT_COLUMNS)
+
+    print(f"loaded {len(edge_df)} raw edges")
+
+    edge_df["src"] = edge_df["src"].map(_safe_string)
+    edge_df["dst"] = edge_df["dst"].map(_safe_string)
+    edge_df["operation"] = edge_df["action"].fillna("").str.lower().str.strip()
+
+    edge_df = edge_df[
+        edge_df["src"].ne("") & edge_df["dst"].ne("") & edge_df["operation"].ne("")
+    ].copy()
+
+    print(f"{len(edge_df)} edges remain after basic cleanup")
+
+    edge_df = edge_df[edge_df["operation"].isin(EDGE_OPERATION_FILTERS)].copy()
+
+    print(f"{len(edge_df)} edges remain after operation filter")
+
+    return edge_df
+
+
+def _build_event_table(vertex_index_map: pd.Series) -> None:
+    """Build the normalized event table."""
+    edge_df = _prepare_edge_frame()
+
+    edge_df["src_node"] = edge_df["src"]
+    edge_df["dst_node"] = edge_df["dst"]
+
+    edge_df["src_index_id"] = edge_df["src_node"].map(vertex_index_map)
+    edge_df["dst_index_id"] = edge_df["dst_node"].map(vertex_index_map)
+
+    before_mapping_filter = len(edge_df)
+
+    edge_df = edge_df[edge_df["src_index_id"].notna() & edge_df["dst_index_id"].notna()].copy()
+
+    dropped = before_mapping_filter - len(edge_df)
+
+    if dropped:
+        print(f"dropped {dropped} edges because src/dst node mapping was missing")
+
+    edge_df["src_index_id"] = edge_df["src_index_id"].astype("int64")
+    edge_df["dst_index_id"] = edge_df["dst_index_id"].astype("int64")
+
+    edge_df["event_uuid"] = _make_event_uuid(edge_df)
+
+    edge_df["timestamp_rec"] = edge_df["timestamp"].apply(_normalize_timestamp_to_ns)
+    edge_df["timestamp_rec"] = pd.to_numeric(
+        edge_df["timestamp_rec"],
+        errors="coerce",
+    ).astype("Int64")
+
+    edge_df["_id"] = pd.RangeIndex(
+        start=0,
+        stop=len(edge_df),
+        step=1,
+    )
+
+    event_df = edge_df.loc[:, EVENT_COLUMNS].copy()
+
+    EVENT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Remove stale event batches from previous runs.
+    for old_batch in EVENT_DIR.glob("event_table_batch_*.csv"):
+        old_batch.unlink()
+
+    _write_table(
+        event_df,
+        EVENT_DIR / "event_table_batch_00000.csv",
+        EVENT_COLUMNS,
+    )
+
+
+# ------------------------------
+# SANITY CHECKS
+# ------------------------------
+
+
+def _run_sanity_checks() -> None:
+    """Check that required input files exist before doing work."""
+    if not INPUT_DIR.exists():
+        raise FileNotFoundError(f"Input directory not found: {INPUT_DIR}")
+
+    if not NODES_FILE.exists():
+        raise FileNotFoundError(f"Missing nodes file: {NODES_FILE}")
+
+    if not EDGES_FILE.exists():
+        raise FileNotFoundError(f"Missing edges file: {EDGES_FILE}")
+
+
+# ------------------------------
+# MAIN
+# ------------------------------
+
+
+def main() -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    print(f"input nodes: {NODES_FILE}")
+    print(f"input edges: {EDGES_FILE}")
+    print(f"output dir:  {OUTPUT_DIR}")
+
+    _run_sanity_checks()
+
+    node_df = _prepare_node_frame()
+    vertex_index_map = _build_vertex_index_map(node_df)
+
+    _build_node_tables(node_df)
+    _build_event_table(vertex_index_map)
+
+    print("[*] Normalized graph tables exported")
 
 
 if __name__ == "__main__":
