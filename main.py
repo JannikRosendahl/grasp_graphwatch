@@ -1,9 +1,13 @@
 import argparse
+import importlib
 import json
 import logging
 import os
-import torch
 from pathlib import Path
+
+import torch
+
+from grasp import config
 from grasp.detection import (
     classification,
     classification_pipeline,
@@ -16,11 +20,9 @@ from grasp.reporting import detailed_report, report, visualization
 from grasp.utils import detection_helpers
 from grasp.utils.evaluation_helpers import compute_metrics_multiclass
 from grasp.utils.file_helpers import (
-    generate_storage_paths,
     generate_experiment_file_prefix,
+    generate_storage_paths,
 )
-
-import grasp.config as config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,9 +51,9 @@ def main() -> None:
         )
 
     os.environ["GRASP_EXPERIMENT_CONFIG"] = str(experiment_path)
-    # Reload config so CLI-provided path is honored
+    # Reload module + config classes so CLI-provided path is fully honored
+    importlib.reload(config)
     config.reload_experiment_config(experiment_path)
-
     config.EXPERIMENT_PREFIX = generate_experiment_file_prefix(
         base_name=config.EXPERIMENT_PREFIX,
         params={
@@ -69,9 +71,7 @@ def main() -> None:
     )
 
     base_path = Path(__file__).resolve().parent / "data" / config.DATASET_NAME
-    storage_paths = generate_storage_paths(
-        config.EXPERIMENT_PREFIX, base_dir=base_path
-    )
+    storage_paths = generate_storage_paths(config.EXPERIMENT_PREFIX, base_dir=base_path)
 
     gm = graph_management.GraphManager(
         dataset_name=config.DATASET_NAME,
@@ -84,13 +84,16 @@ def main() -> None:
         step_size=config.GraphConfig.STEP_SIZE,
         force_reload=config.GraphConfig.FORCE_RELOAD,
         root_dir=config.GraphConfig.GRAPH_ROOT_DIR,
-        autoencoder_embedding_dim=(
-            config.LocationTransformerConfig.EMBEDDING_DIM
-        ),
+        autoencoder_embedding_dim=(config.LocationTransformerConfig.EMBEDDING_DIM),
         autoencoder_hidden_dim=config.LocationTransformerConfig.HIDDEN_DIM,
         autoencoder_num_epochs=config.LocationTransformerConfig.NUM_EPOCHS,
         autoencoder_patience=config.LocationTransformerConfig.PATIENCE,
         autoencoder_batch_size=config.LocationTransformerConfig.BATCH_SIZE,
+        location_embedding_model_type=(config.LocationTransformerConfig.MODEL_TYPE),
+        word2vec_window_size=(config.LocationTransformerConfig.WORD2VEC_WINDOW_SIZE),
+        word2vec_min_count=config.LocationTransformerConfig.WORD2VEC_MIN_COUNT,
+        word2vec_negative_samples=(config.LocationTransformerConfig.WORD2VEC_NEGATIVE_SAMPLES),
+        word2vec_learning_rate=(config.LocationTransformerConfig.WORD2VEC_LEARNING_RATE),
         autoencoder_device=config.LocationTransformerConfig.DEVICE,
     )
     gm.run_full_workflow()
@@ -98,24 +101,35 @@ def main() -> None:
 
     gs: graph_storage.GraphStorage = gm.graph_storage
 
-    trained_model: classification.GAT = (
-        classification_pipeline.window_based_train(
-            graph_storage=gs,
-            batch_size=config.DetectionConfig.BATCH_SIZE,
-            num_neighbors=config.DetectionConfig.NUM_NEIGHBORS,
-            epochs=config.DetectionConfig.EPOCHS,
-            hidden_channels=config.DetectionConfig.HIDDEN_DIM,
-            num_layers=config.DetectionConfig.NUM_LAYERS,
-            heads=config.DetectionConfig.HEADS,
-            dropout=config.DetectionConfig.DROPOUT,
-            device=torch.device(config.DetectionConfig.DEVICE),
-            learning_rate=config.DetectionConfig.LEARNING_RATE,
-            weight_decay=config.DetectionConfig.WEIGHT_DECAY,
-            shuffle_train_paths=config.DetectionConfig.SHUFFLE_TRAIN_PATHS,
-            shuffle_train_batches=config.DetectionConfig.SHUFFLE_TRAIN_BATCHES,
-        )
+    trained_model: classification.GAT = classification_pipeline.window_based_train(
+        graph_storage=gs,
+        batch_size=config.DetectionConfig.BATCH_SIZE,
+        num_neighbors=config.DetectionConfig.NUM_NEIGHBORS,
+        epochs=config.DetectionConfig.EPOCHS,
+        hidden_channels=config.DetectionConfig.HIDDEN_DIM,
+        num_layers=config.DetectionConfig.NUM_LAYERS,
+        heads=config.DetectionConfig.HEADS,
+        dropout=config.DetectionConfig.DROPOUT,
+        device=torch.device(config.DetectionConfig.DEVICE),
+        learning_rate=config.DetectionConfig.LEARNING_RATE,
+        weight_decay=config.DetectionConfig.WEIGHT_DECAY,
+        shuffle_train_paths=config.DetectionConfig.SHUFFLE_TRAIN_PATHS,
+        shuffle_train_batches=config.DetectionConfig.SHUFFLE_TRAIN_BATCHES,
+        use_class_weights=config.DetectionConfig.USE_CLASS_WEIGHTS,
+        enable_subset_finetune=(config.DetectionConfig.SUBSET_FINETUNE_ENABLED),
+        subset_finetune_epochs=(config.DetectionConfig.SUBSET_FINETUNE_EPOCHS),
+        subset_finetune_learning_rate=(config.DetectionConfig.SUBSET_FINETUNE_LEARNING_RATE),
+        subset_finetune_lr_factor=(config.DetectionConfig.SUBSET_FINETUNE_LR_FACTOR),
+        subset_finetune_freeze_backbone=(config.DetectionConfig.SUBSET_FINETUNE_FREEZE_BACKBONE),
     )
     trained_model.save_model(str(storage_paths["classification_model"]))
+
+    logger.info(trained_model)  # type: ignore
+    total_params = sum(p.numel() for p in trained_model.parameters())
+    trainable_params = sum(p.numel() for p in trained_model.parameters() if p.requires_grad)
+
+    logger.info(f"Total parameters: {total_params:,}")
+    logger.info(f"Trainable parameters: {trainable_params:,}")
 
     cls_storage_train: classification_storage.ClassificationStorage = (
         classification_pipeline.window_based_test(
@@ -167,9 +181,18 @@ def main() -> None:
         cluster_manager=cluster_manager,
         cls_storage=cls_storage_test,
     )
-    cluster_manager.save_to_disk(filepath=(storage_paths["cluster_manager"]))
+    cluster_manager.save_to_disk(filepath=(storage_paths["cluster_manager"]))  # type: ignore
 
     cls_storage_test.save_to_file(str(storage_paths["classification_test"]))
+
+    # temporary: save cluster_predictions to a file for analysis
+    cls_predictions_file = (
+        Path(storage_paths["classification_test"]).parent
+        / f"{config.EXPERIMENT_PREFIX}_cluster_predictions.json"
+    )
+    cls_predictions_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(cls_predictions_file, "w", encoding="utf-8") as f:
+        json.dump(cls_storage_test.y_hat_proba, f, indent=2)
 
     es = evaluation_storage.EvaluationStorage(
         cs=cls_storage_test,
@@ -197,10 +220,10 @@ def main() -> None:
         ground_truth_storage=gts,
         graph_storage=gs,
     )
-    dr.save(storage_paths["detailed_report"])
+    dr.save(storage_paths["detailed_report"])  # type: ignore
     print(r.to_dict())
     visualization.visualize_misclassification_timeframes(
-        detailed_report_path=storage_paths["detailed_report"],
+        detailed_report_path=storage_paths["detailed_report"],  # type: ignore
         output_path=storage_paths["visualizations_dir"]
         / f"{config.EXPERIMENT_PREFIX}_misclassifications_over_time.png",
         attack_windows=config.ATTACK_WINDOWS_FOR_VISUALIZATION,
