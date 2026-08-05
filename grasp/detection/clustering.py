@@ -1,6 +1,7 @@
-import torch
-import numpy as np
 import logging
+
+import numpy as np
+import torch
 
 from grasp.detection.classification_storage import (
     ClassificationStorage,
@@ -11,21 +12,16 @@ logger = logging.getLogger(__name__)
 
 class ClusterManager:
     def __init__(self, classification_storage: ClassificationStorage) -> None:
-        self.classification_storage: ClassificationStorage = (
-            classification_storage
-        )
+        self.classification_storage: ClassificationStorage = classification_storage
         self.misclassification_clusters: dict[int, set[int]] = {}
 
     def create_misclassification_clusters(self) -> None:
         """Populate misclassification clusters from stored predictions."""
         # init
         self.misclassification_clusters = {
-            int(label): set()
-            for label in np.unique(self.classification_storage.y)
+            int(label): set() for label in np.unique(self.classification_storage.y)
         }
-        for y, y_hat in zip(
-            self.classification_storage.y, self.classification_storage.y_hat
-        ):
+        for y, y_hat in zip(self.classification_storage.y, self.classification_storage.y_hat):
             self.misclassification_clusters[y].add(y_hat)
         logger.info(
             "Misclassification clusters created: "
