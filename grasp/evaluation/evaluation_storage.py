@@ -1,13 +1,14 @@
-from pathlib import Path
-import torch
 import logging
+from pathlib import Path
+
+import torch
 
 from grasp.detection.classification_storage import ClassificationStorage
 from grasp.evaluation.ground_truth_storage import GroundTruthStorage
 from grasp.utils.evaluation_helpers import (
     compute_metrics,
-    get_anomalies,
     create_cmd_to_id_inverse,
+    get_anomalies,
     get_labels_from_cmd_ids,
 )
 
@@ -45,16 +46,12 @@ class EvaluationStorage:
                     "initializing with a ClassificationStorage."
                 )
 
-            train_subject_cmd_to_id_inverse: dict[int, str] = (
-                create_cmd_to_id_inverse(train_subject_cmd_to_id)
+            train_subject_cmd_to_id_inverse: dict[int, str] = create_cmd_to_id_inverse(
+                train_subject_cmd_to_id
             )
             misclassified_indices: list[int] = get_anomalies(cs)
-            self.misclassified_uuids = [
-                cs.node_uuids[i] for i in misclassified_indices
-            ]
-            self.misclassified_ids = [
-                cs.node_ids[i] for i in misclassified_indices
-            ]
+            self.misclassified_uuids = [cs.node_uuids[i] for i in misclassified_indices]
+            self.misclassified_ids = [cs.node_ids[i] for i in misclassified_indices]
             pred_cmd_labels: list[str] = get_labels_from_cmd_ids(
                 cs.y_hat_cluster_corrected, train_subject_cmd_to_id_inverse
             )
@@ -72,9 +69,7 @@ class EvaluationStorage:
             self.window_path = window_path_misclassified
 
     def save_to_file(self, filepath: str) -> None:
-        data: dict[
-            str, list[str] | dict[str, list[str]] | dict[str, list[int]]
-        ] = {
+        data: dict[str, list[str] | dict[str, list[str]] | dict[str, list[int]]] = {
             "misclassified_uuids": self.misclassified_uuids,
             "misclassified_ids": self.misclassified_ids,
             "true_cmd_labels": self.true_cmd_labels,
@@ -99,34 +94,26 @@ class EvaluationStorage:
         logger.info(f"Classification results saved to {filepath}")
 
     def load_from_file(self, filepath: str) -> None:
-        data: dict[
-            str, list[str] | dict[str, list[str]] | dict[str, list[int]]
-        ] = torch.load(filepath)
-        self.misclassified_uuids = data["misclassified_uuids"]
-        self.misclassified_ids = data["misclassified_ids"]
-        self.true_cmd_labels = data["true_cmd_labels"]
-        self.pred_cmd_labels = data["pred_cmd_labels"]
-        self.window_path = data["window_path"]
-        self.hits_per_gt_group = data.get("hits_per_gt_group", {})
-        self.y_per_gt_group = data.get("y_per_gt_group", {})
-        self.y_hat_per_gt_group = data.get("y_hat_per_gt_group", {})
-        self.y_per_gt_group_unique = data.get("y_per_gt_group_unique", {})
-        self.y_hat_per_gt_group_unique = data.get(
-            "y_hat_per_gt_group_unique", {}
+        data: dict[str, list[str] | dict[str, list[str]] | dict[str, list[int]]] = torch.load(
+            filepath
         )
-        self.unknown_uuids_per_gt_group = data.get(
-            "unknown_uuids_per_gt_group", {}
-        )
-        self.hits_per_gt_file = data.get("hits_per_gt_file", {})
-        self.y_per_gt_file = data.get("y_per_gt_file", {})
-        self.y_hat_per_gt_file = data.get("y_hat_per_gt_file", {})
-        self.y_per_gt_file_unique = data.get("y_per_gt_file_unique", {})
-        self.y_hat_per_gt_file_unique = data.get(
-            "y_hat_per_gt_file_unique", {}
-        )
-        self.unknown_uuids_per_gt_file = data.get(
-            "unknown_uuids_per_gt_file", {}
-        )
+        self.misclassified_uuids = data["misclassified_uuids"]  # type: ignore
+        self.misclassified_ids = data["misclassified_ids"]  # type: ignore
+        self.true_cmd_labels = data["true_cmd_labels"]  # type: ignore
+        self.pred_cmd_labels = data["pred_cmd_labels"]  # type: ignore
+        self.window_path = data["window_path"]  # type: ignore
+        self.hits_per_gt_group = data.get("hits_per_gt_group", {})  # type: ignore
+        self.y_per_gt_group = data.get("y_per_gt_group", {})  # type: ignore
+        self.y_hat_per_gt_group = data.get("y_hat_per_gt_group", {})  # type: ignore
+        self.y_per_gt_group_unique = data.get("y_per_gt_group_unique", {})  # type: ignore
+        self.y_hat_per_gt_group_unique = data.get("y_hat_per_gt_group_unique", {})  # type: ignore
+        self.unknown_uuids_per_gt_group = data.get("unknown_uuids_per_gt_group", {})  # type: ignore
+        self.hits_per_gt_file = data.get("hits_per_gt_file", {})  # type: ignore
+        self.y_per_gt_file = data.get("y_per_gt_file", {})  # type: ignore
+        self.y_hat_per_gt_file = data.get("y_hat_per_gt_file", {})  # type: ignore
+        self.y_per_gt_file_unique = data.get("y_per_gt_file_unique", {})  # type: ignore
+        self.y_hat_per_gt_file_unique = data.get("y_hat_per_gt_file_unique", {})  # type: ignore
+        self.unknown_uuids_per_gt_file = data.get("unknown_uuids_per_gt_file", {})  # type: ignore
         logger.info(f"Classification results loaded from {filepath}")
 
     @staticmethod
@@ -155,9 +142,7 @@ class EvaluationStorage:
             y_per[group_name] = []
             y_hat_per[group_name] = []
 
-            hits_per[group_name] = [
-                uuid for uuid in misclassified_uuids if uuid in uuid_set
-            ]
+            hits_per[group_name] = [uuid for uuid in misclassified_uuids if uuid in uuid_set]
 
             for uuid in cs.node_uuids:
                 y_per[group_name].append(1 if uuid in uuid_set else 0)
@@ -165,15 +150,11 @@ class EvaluationStorage:
                 y_hat_per[group_name].append(is_anomaly)
 
             for uuid in unique_node_uuids:
-                y_per_unique.setdefault(group_name, []).append(
-                    1 if uuid in uuid_set else 0
-                )
+                y_per_unique.setdefault(group_name, []).append(1 if uuid in uuid_set else 0)
                 is_anomaly = 1 if uuid in misclassified_uuids else 0
                 y_hat_per_unique.setdefault(group_name, []).append(is_anomaly)
 
-            unknown_per[group_name] = [
-                uuid for uuid in uuid_set if uuid not in unique_node_uuids
-            ]
+            unknown_per[group_name] = [uuid for uuid in uuid_set if uuid not in unique_node_uuids]
 
         return (
             y_per,
@@ -202,31 +183,24 @@ class EvaluationStorage:
             self.y_per_gt_group_unique,
             self.y_hat_per_gt_group_unique,
         ) = self._compute_labeling(uuid_groups, cs, self.misclassified_uuids)
+        logger.info("Computed y and y_hat per combined ground truth (grasp/non_grasp).")
         logger.info(
-            "Computed y and y_hat per combined ground truth (grasp/non_grasp)."
-        )
-        logger.info(
-            f"Grasp hits: {len(self.hits_per_gt_group.get('grasp', []))}"
-            f" of {len(grasp_gt_uuids)}"
+            f"Grasp hits: {len(self.hits_per_gt_group.get('grasp', []))} of {len(grasp_gt_uuids)}"
         )
         logger.info(
             f"Non-grasp hits: {len(self.hits_per_gt_group.get('non_grasp', []))}"
             f" of {len(non_grasp_gt_uuids)}"
         )
+        logger.info(f"Grasp unknown UUIDs: {len(self.unknown_uuids_per_gt_group.get('grasp', []))}")
         logger.info(
-            f"Grasp unknown UUIDs: "
-            f"{len(self.unknown_uuids_per_gt_group.get('grasp', []))}"
-        )
-        logger.info(
-            f"Non-grasp unknown UUIDs: "
-            f"{len(self.unknown_uuids_per_gt_group.get('non_grasp', []))}"
+            f"Non-grasp unknown UUIDs: {len(self.unknown_uuids_per_gt_group.get('non_grasp', []))}"
         )
 
     def get_y_and_y_hat_per_gt_file(
         self, gts: GroundTruthStorage, cs: ClassificationStorage
     ) -> None:
         uuid_groups: dict[str, set[str]] = {}
-        for gs_file in gts.keys():
+        for gs_file in gts.keys():  # noqa: SIM118
             gs_file_df = gts.get(gs_file)
             uuid_groups[gs_file] = set(gs_file_df["uuid"].tolist())
 
@@ -245,7 +219,7 @@ class EvaluationStorage:
         self,
     ) -> dict[str, dict[str, float]]:
         metrics_per_group: dict[str, dict[str, float]] = {}
-        for group_name in self.y_per_gt_group.keys():
+        for group_name in self.y_per_gt_group:
             y_true = self.y_per_gt_group_unique[group_name]
             y_pred = self.y_hat_per_gt_group_unique[group_name]
             metrics = compute_metrics(y_true, y_pred)
@@ -261,7 +235,7 @@ class EvaluationStorage:
         self,
     ) -> dict[str, dict[str, float]]:
         metrics_per_file: dict[str, dict[str, float]] = {}
-        for file_name in self.y_per_gt_file.keys():
+        for file_name in self.y_per_gt_file:
             y_true: list[int] = self.y_per_gt_file_unique[file_name]
             y_pred: list[int] = self.y_hat_per_gt_file_unique[file_name]
             metrics = compute_metrics(y_true, y_pred)

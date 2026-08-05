@@ -1,8 +1,8 @@
-from pathlib import Path
 import logging
+from pathlib import Path
+
 import pandas as pd
 import torch
-
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +15,9 @@ class GroundTruthStorage:
 
     def _load_files(self) -> None:
         if not self.base_path.exists():
-            raise FileNotFoundError(
-                f"Ground truth path does not exist: {self.base_path}"
-            )
+            raise FileNotFoundError(f"Ground truth path does not exist: {self.base_path}")
         if not self.base_path.is_dir():
-            raise NotADirectoryError(
-                f"Ground truth path is not a directory: {self.base_path}"
-            )
+            raise NotADirectoryError(f"Ground truth path is not a directory: {self.base_path}")
 
         for csv_path in sorted(self.base_path.rglob("*.csv")):
             rel_path = str(csv_path.relative_to(self.base_path))
@@ -31,17 +27,13 @@ class GroundTruthStorage:
                     for line in f:
                         line = line.rstrip("\n")
                         uuid, rest = line.split(",", 1)  # split at first comma
-                        label, node_id = rest.rsplit(
-                            ",", 1
-                        )  # split at last comma
+                        label, node_id = rest.rsplit(",", 1)  # split at last comma
                         rows.append((uuid, label, node_id))
 
                 df = pd.DataFrame(rows, columns=["uuid", "label", "node_id"])
                 df["node_id"] = pd.to_numeric(df["node_id"], errors="coerce")
             except Exception:
-                logger.exception(
-                    "Failed to load ground truth file %s", csv_path
-                )
+                logger.exception("Failed to load ground truth file %s", csv_path)
                 raise
 
             self.files[rel_path] = df
@@ -61,9 +53,7 @@ class GroundTruthStorage:
         for rel_path, df in self.files.items():
             if grasp and "grasp" not in rel_path:
                 continue
-            if not grasp and (
-                "grasp" in rel_path or "unknown_exec" in rel_path
-            ):
+            if not grasp and ("grasp" in rel_path or "unknown_exec" in rel_path):
                 continue
 
             frame = df.copy()
