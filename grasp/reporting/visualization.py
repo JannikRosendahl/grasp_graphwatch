@@ -1,12 +1,16 @@
-import pandas as pd
-import matplotlib.pyplot as plt
+import json
+import logging
+from pathlib import Path
+
 import matplotlib.dates as mdates
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import pandas as pd
 from matplotlib.ticker import MaxNLocator
-from datetime import datetime
-from pathlib import Path
-import json
+
 from grasp.utils import time_helpers
+
+logger = logging.getLogger(__name__)
 
 
 def visualize_misclassification_timeframes(
@@ -47,7 +51,7 @@ def visualize_misclassification_timeframes(
     def _parse_time(ts):
         try:
             return pd.to_datetime(ts)
-        except Exception:
+        except (TypeError, ValueError):
             return None
 
     def _collect_attack_intervals(windows=None):
@@ -64,13 +68,12 @@ def visualize_misclassification_timeframes(
                     if end < start:
                         start, end = end, start
                     intervals.append((start, end))
-            except Exception:
+            except (KeyError, TypeError, ValueError):
+                logger.warning("Skipping invalid attack window entry", exc_info=True)
                 continue
         return intervals
 
-    def _interval_count_series(
-        starts: pd.Series, ends: pd.Series
-    ) -> pd.DataFrame:
+    def _interval_count_series(starts: pd.Series, ends: pd.Series) -> pd.DataFrame:
         events = []
         for s, e in zip(starts, ends):
             if s is None or e is None:
@@ -80,9 +83,7 @@ def visualize_misclassification_timeframes(
             events.append((s, 1))
             events.append((e, -1))
         if not events:
-            return pd.DataFrame(
-                columns=["t_from", "t_to", "count", "duration_s"]
-            )
+            return pd.DataFrame(columns=["t_from", "t_to", "count", "duration_s"])
 
         events.sort(key=lambda x: x[0])
         segments, active = [], 0
@@ -101,9 +102,7 @@ def visualize_misclassification_timeframes(
                 )
         return pd.DataFrame(segments)
 
-    def _configure_time_axis(
-        ax, tmin: pd.Timestamp, tmax: pd.Timestamp, tick_count: int
-    ):
+    def _configure_time_axis(ax, tmin: pd.Timestamp, tmax: pd.Timestamp, tick_count: int):
         span = (tmax - tmin).total_seconds()
 
         # Choose date format based on total range
@@ -141,15 +140,33 @@ def visualize_misclassification_timeframes(
 
     df = pd.DataFrame(dr.get("detailed_detection").get("anomalies"))
     df[["start_ts_ns", "end_ts_ns"]] = (
-        df["time_window"]
-        .str.extract(r".*_(\d+)_to_(\d+)_extended\.pt$")
-        .astype("int64")
+        df["time_window"].str.extract(r".*_(\d+)_to_(\d+)_extended\.pt$").astype("int64")
     )
+
+    # get dataset name for utc or not
+    try:
+        first_tw = df["time_window"].iloc[0]
+        # get segment after data/graphs/
+        import re
+
+        m = re.search(r"data/graphs/([^/]+)", first_tw)
+        if m:
+            # take first segment and strip suffix after underscore, e.g. 'atlasv2_edr' -> 'atlasv2'
+            dataset_name = m.group(1)
+        else:
+            dataset_name = ""
+    except (KeyError, IndexError, TypeError, AttributeError):
+        dataset_name = ""
+
+    utc = False
+    if dataset_name in ["carbanakv2_edr", "atlasv2_edr"]:
+        utc = True
+
     df["tf_start_ts"] = df["start_ts_ns"].apply(
-        time_helpers.ns_time_to_datetime_US_reverse
+        lambda ns: time_helpers.ns_time_to_datetime_US_reverse(ns, utc=utc)
     )
     df["tf_end_ts"] = df["end_ts_ns"].apply(
-        time_helpers.ns_time_to_datetime_US_reverse
+        lambda ns: time_helpers.ns_time_to_datetime_US_reverse(ns, utc=utc)
     )
 
     df["start_ts"] = df["tf_start_ts"].apply(_parse_time)
@@ -157,17 +174,13 @@ def visualize_misclassification_timeframes(
     df = df.dropna(subset=["start_ts", "end_ts"]).copy()
 
     swap_mask = df["end_ts"] < df["start_ts"]
-    df.loc[swap_mask, ["start_ts", "end_ts"]] = df.loc[
-        swap_mask, ["end_ts", "start_ts"]
-    ].values
+    df.loc[swap_mask, ["start_ts", "end_ts"]] = df.loc[swap_mask, ["end_ts", "start_ts"]].values
 
     if min_duration_seconds > 0:
-        short_mask = (
-            df["end_ts"] - df["start_ts"]
-        ).dt.total_seconds() < min_duration_seconds  # type: ignore
-        df.loc[short_mask, "end_ts"] = df.loc[
-            short_mask, "start_ts"
-        ] + pd.to_timedelta(min_duration_seconds, unit="s")  # type: ignore
+        short_mask = (df["end_ts"] - df["start_ts"]).dt.total_seconds() < min_duration_seconds  # type: ignore
+        df.loc[short_mask, "end_ts"] = df.loc[short_mask, "start_ts"] + pd.to_timedelta(
+            min_duration_seconds, unit="s"
+        )  # type: ignore
 
     # --- Visualization ---
     attack_intervals = _collect_attack_intervals(attack_windows)
@@ -196,9 +209,7 @@ def visualize_misclassification_timeframes(
     ax.set_xlabel("Time", labelpad=8)
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
 
-    _configure_time_axis(
-        ax, segments["t_from"].min(), segments["t_to"].max(), x_tick_count
-    )
+    _configure_time_axis(ax, segments["t_from"].min(), segments["t_to"].max(), x_tick_count)
 
     if attack_intervals:
         ax.legend(

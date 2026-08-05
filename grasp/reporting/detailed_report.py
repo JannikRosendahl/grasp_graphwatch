@@ -1,5 +1,4 @@
 import json
-from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 

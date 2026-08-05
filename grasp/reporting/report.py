@@ -34,15 +34,11 @@ class Report:
         # Missed attacks: true positive class but predicted as 0 or wrong class
         anomalies = [
             uuid
-            for uuid, true, pred in zip(
-                cs.node_uuids, cs.y, cs.y_hat_cluster_corrected
-            )
+            for uuid, true, pred in zip(cs.node_uuids, cs.y, cs.y_hat_cluster_corrected)
             if true != 0 and pred != true
         ]
 
-        corrected_diff = sum(
-            1 for a, b in zip(cs.y_hat, cs.y_hat_cluster_corrected) if a != b
-        )
+        corrected_diff = sum(1 for a, b in zip(cs.y_hat, cs.y_hat_cluster_corrected) if a != b)
 
         return {
             "total_nodes": total,
