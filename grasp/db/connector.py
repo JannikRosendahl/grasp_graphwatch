@@ -7,10 +7,11 @@ query execution.
 """
 
 from typing import Literal
+
 import records
 from sqlalchemy.pool import NullPool
 
-from grasp.schema import EdgeColumns, NodeColumns, NodeTableName, EventTable
+from grasp.schema import EdgeColumns, EventTable, NodeColumns, NodeTableName
 
 
 class DBConnector:
@@ -94,9 +95,7 @@ class DBConnector:
             end_time_ns=end_time_ns,
         )
 
-    def _fetch_nodes(
-        self, node_ids: tuple[int, ...]
-    ) -> records.RecordCollection:
+    def _fetch_nodes(self, node_ids: tuple[int, ...]) -> records.RecordCollection:
         """
         Fetch nodes with the specified node IDs from multiple tables.
 
@@ -144,15 +143,21 @@ class DBConnector:
         )
 
         union_parts: list[str] = [
-            f"SELECT {common_columns_str}, {cmd_column}, {path_column}, "
-            f"{null_network}, 'subject'::text AS type "
-            f"FROM {tables[0]} WHERE index_id IN :node_ids",
-            f"SELECT {common_columns_str}, {path_column} AS cmd, "
-            f"{path_column}, {null_network}, 'file'::text AS type "
-            f"FROM {tables[1]} WHERE index_id IN :node_ids",
-            f"SELECT {common_columns_str}, {null_cmd}, {null_path}, "
-            f"{network_columns_str}, 'netflow'::text AS type "
-            f"FROM {tables[2]} WHERE index_id IN :node_ids",
+            (
+                f"SELECT {common_columns_str}, {cmd_column}, {path_column}, "
+                f"{null_network}, 'subject'::text AS type "
+                f"FROM {tables[0]} WHERE index_id IN :node_ids"
+            ),
+            (
+                f"SELECT {common_columns_str}, {path_column} AS cmd, "
+                f"{path_column}, {null_network}, 'file'::text AS type "
+                f"FROM {tables[1]} WHERE index_id IN :node_ids"
+            ),
+            (
+                f"SELECT {common_columns_str}, {null_cmd}, {null_path}, "
+                f"{network_columns_str}, 'netflow'::text AS type "
+                f"FROM {tables[2]} WHERE index_id IN :node_ids"
+            ),
         ]
 
         sql: str = " UNION ALL ".join(union_parts)
@@ -178,24 +183,18 @@ class DBConnector:
                 - records.RecordCollection: The fetched nodes.
         """
 
-        edges: records.RecordCollection = self._fetch_edges(
-            operations, start_time_ns, end_time_ns
-        )
+        edges: records.RecordCollection = self._fetch_edges(operations, start_time_ns, end_time_ns)
 
         # Extract unique node IDs from edges
         node_ids: set[int] = set()
         for row in edges:
-            node_ids.add(row.src_index_id)
-            node_ids.add(row.dst_index_id)
+            node_ids.add(row.src_index_id)  # type: ignore
+            node_ids.add(row.dst_index_id)  # type: ignore
 
         if not node_ids:
-            nodes: records.RecordCollection = records.RecordCollection(
-                iter([])
-            )
+            nodes: records.RecordCollection = records.RecordCollection(iter([]))
         else:
-            nodes: records.RecordCollection = self._fetch_nodes(
-                tuple(node_ids)
-            )
+            nodes: records.RecordCollection = self._fetch_nodes(tuple(node_ids))
         # nodes: records.RecordCollection = self._fetch_nodes(tuple(node_ids))
 
         return edges, nodes
