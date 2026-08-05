@@ -1,15 +1,14 @@
 import logging
+from collections.abc import Iterable
+
 import numpy as np
-from typing import Iterable
-
-
 import pandas as pd
 import torch
 from torch_geometric.data import Data
 
 from grasp import config
-from grasp.schema import NodeType, EdgeColumns, NodeColumns
 from grasp.graph import graph_storage
+from grasp.schema import EdgeColumns, NodeColumns, NodeType
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +32,20 @@ def get_operations() -> dict[int, str]:
         return config.TC_OPERATIONS_MODIFIED
     if dataset_name.startswith("optc"):
         return config.OPTC_OPERATIONS
+    if dataset_name.startswith("atlasv2_edr"):
+        return config.ATLASV2_EDR_OPERATIONS
+    if dataset_name.startswith("carbanakv2_edr"):
+        return config.CARBANAKV2_EDR_OPERATIONS
+    if dataset_name.startswith("spade_grasp"):
+        return config.SPADE_GRASP_OPERATIONS
+    if dataset_name.startswith("sysdig"):
+        return config.SYSDIG_OPERATIONS
     return config.TC_OPERATIONS
 
 
 def get_label_column_name_based_on_dataset() -> str:
     dataset_name: str = config.DATASET_NAME
-    if dataset_name.startswith("optc") or dataset_name.startswith("theia"):
+    if dataset_name.startswith(("optc", "theia", "carbanak", "atlas")):
         return NodeColumns.PATH.value
     else:
         return NodeColumns.CMD.value
@@ -54,7 +61,7 @@ def clean_graph_attributes_for_neighborloader(
         "node_cmd_labels": None,
     }
 
-    for attr in extracted_attributes.keys():
+    for attr in extracted_attributes:
         if hasattr(graph, attr):
             extracted_attributes[attr] = getattr(graph, attr)
             delattr(graph, attr)
@@ -76,31 +83,20 @@ def get_all_cmds_and_locations(
             train_locations = data.node_location
 
             train_cmds = np.array(train_cmds, dtype=object)
-            train_cmds = np.where(
-                pd.isna(train_cmds), "<NONE>", train_cmds
-            ).tolist()
+            train_cmds = np.where(pd.isna(train_cmds), "<NONE>", train_cmds).tolist()
 
             path_storage.train_cmds.extend(train_cmds)
             path_storage.train_locations.extend(train_locations)
-            subject_cmds = [
-                cmd
-                for cmd, is_subject in zip(train_cmds, subject_mask)
-                if is_subject
-            ]
+            subject_cmds = [cmd for cmd, is_subject in zip(train_cmds, subject_mask) if is_subject]
             subject_locations = [
-                loc
-                for loc, is_subject in zip(train_locations, subject_mask)
-                if is_subject
+                loc for loc, is_subject in zip(train_locations, subject_mask) if is_subject
             ]
 
             path_storage.train_subject_cmds.extend(subject_cmds)
 
             path_storage.train_subject_locations.extend(subject_locations)
     logger.info(f"Loaded {len(path_storage.train_cmds)} training commands.")
-    logger.info(
-        f"Loaded {len(path_storage.train_subject_locations)} "
-        f"training locations."
-    )
+    logger.info(f"Loaded {len(path_storage.train_subject_locations)} training locations.")
 
     for test_data_paths in [path_storage.test_data_paths]:
         for path in test_data_paths:
@@ -110,64 +106,42 @@ def get_all_cmds_and_locations(
             test_locations = data.node_location
 
             test_cmds = np.array(path_storage.test_subject_cmds, dtype=object)
-            test_cmds = np.where(
-                pd.isna(test_cmds), "<NONE>", test_cmds
-            ).tolist()
+            test_cmds = np.where(pd.isna(test_cmds), "<NONE>", test_cmds).tolist()
 
             path_storage.test_cmds.extend(test_cmds)
             path_storage.test_locations.extend(test_locations)
-            subject_cmds = [
-                cmd
-                for cmd, is_subject in zip(test_cmds, subject_mask)
-                if is_subject
-            ]
+            subject_cmds = [cmd for cmd, is_subject in zip(test_cmds, subject_mask) if is_subject]
             subject_locations = [
-                loc
-                for loc, is_subject in zip(test_locations, subject_mask)
-                if is_subject
+                loc for loc, is_subject in zip(test_locations, subject_mask) if is_subject
             ]
 
             path_storage.test_subject_cmds.extend(subject_cmds)
             path_storage.test_subject_locations.extend(subject_locations)
 
     logger.info(f"Loaded {len(path_storage.test_cmds)} testing commands.")
-    logger.info(
-        f"Loaded {len(path_storage.test_subject_locations)} testing locations."
-    )
+    logger.info(f"Loaded {len(path_storage.test_subject_locations)} testing locations.")
 
 
 def create_train_cmd_mapping(path_storage: graph_storage.GraphStorage) -> None:
     unique_cmds = set(path_storage.train_subject_cmds)
     path_storage.train_subject_cmd_to_id = {
-        cmd: idx
-        for idx, cmd in enumerate(
-            sorted(cmd for cmd in unique_cmds if cmd is not None)
-        )
+        cmd: idx for idx, cmd in enumerate(sorted(cmd for cmd in unique_cmds if cmd is not None))
     }
-    logger.info(
-        f"Unique training commands: "
-        f"{len(path_storage.train_subject_cmd_to_id)}"
-    )
-    logger.debug(
-        f"Training command to ID mapping: "
-        f"  {path_storage.train_subject_cmd_to_id}"
-    )
+    logger.info(f"Unique training commands: {len(path_storage.train_subject_cmd_to_id)}")
+    logger.debug(f"Training command to ID mapping:   {path_storage.train_subject_cmd_to_id}")
 
 
 def create_extended_cmd_mapping(
     path_storage: graph_storage.GraphStorage,
 ) -> None:
-    unique_cmds = set(path_storage.test_subject_cmds).union(
-        set(path_storage.train_subject_cmds)
-    )
+    unique_cmds = set(path_storage.test_subject_cmds).union(set(path_storage.train_subject_cmds))
     path_storage.extended_subject_cmd_to_id = {
         cmd: idx
         for idx, cmd in enumerate(
             sorted(
                 cmd
                 for cmd in unique_cmds
-                if cmd is not None
-                and cmd not in path_storage.train_subject_cmd_to_id
+                if cmd is not None and cmd not in path_storage.train_subject_cmd_to_id
             ),
             start=len(path_storage.train_subject_cmd_to_id),
         )
@@ -189,16 +163,10 @@ def create_combined_location_list(
 def create_unique_locations_lists(
     path_storage: graph_storage.GraphStorage,
 ) -> None:
-    path_storage.unique_train_locations = list(
-        set(path_storage.train_locations)
-    )
+    path_storage.unique_train_locations = list(set(path_storage.train_locations))
     path_storage.unique_test_locations = list(set(path_storage.test_locations))
-    logging.info(
-        f"Unique training locations: {len(path_storage.unique_train_locations)}"
-    )
-    logging.info(
-        f"Unique testing locations: {len(path_storage.unique_test_locations)}"
-    )
+    logger.info(f"Unique training locations: {len(path_storage.unique_train_locations)}")
+    logger.info(f"Unique testing locations: {len(path_storage.unique_test_locations)}")
 
 
 def load_graph_data(path: str) -> Data:
@@ -213,9 +181,7 @@ def record_collection_to_df(records: Iterable) -> pd.DataFrame:
     return pd.DataFrame([row.as_dict() for row in records])
 
 
-def generate_graph_basename(
-    prefix: str, start_time: str, end_time: str
-) -> str:
+def generate_graph_basename(prefix: str, start_time: str, end_time: str) -> str:
     return f"{prefix}_graph_{start_time}_to_{end_time}"
 
 
@@ -225,7 +191,5 @@ def extract_graph_basename(
     return graph_filename.split(".")[0]
 
 
-def generate_graph_extendedname(
-    graph_basename: str, extension: str = "extended"
-) -> str:
+def generate_graph_extendedname(graph_basename: str, extension: str = "extended") -> str:
     return f"{graph_basename}_{extension}"
