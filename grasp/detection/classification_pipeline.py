@@ -1,25 +1,25 @@
-import torch
 import logging
+
+import torch
 from torch_geometric.data.data import Data
 from torch_geometric.loader import NeighborLoader
 
-
-from grasp.graph.graph_storage import GraphStorage
+from grasp.detection.classification import (
+    GAT,
+    collect_hard_example_node_ids,
+    test,
+    train,
+)
 from grasp.detection.classification_storage import (
     ClassificationStorage,
 )
-from grasp.detection.classification import (
-    GAT,
-    train,
-    collect_hard_example_node_ids,
-    test,
-)
-from grasp.utils.graph_helpers import (
-    load_graph_data,
-    clean_graph_attributes_for_neighborloader,
-)
+from grasp.graph.graph_storage import GraphStorage
 from grasp.utils.detection_helpers import (
     extract_node_cmd_labels_uuids_and_ids,
+)
+from grasp.utils.graph_helpers import (
+    clean_graph_attributes_for_neighborloader,
+    load_graph_data,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -39,9 +39,7 @@ def window_based_train(
     num_layers: int = 2,
     heads: int = 4,
     dropout: float = 0.1,
-    device: torch.device = torch.device(
-        "cuda" if torch.cuda.is_available() else "cpu"
-    ),
+    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),  # noqa: B008
     shuffle_train_paths: bool = False,
     shuffle_train_batches: bool = True,
     learning_rate: float = 0.01,
@@ -79,9 +77,7 @@ def window_based_train(
         use_class_weights=use_class_weights,
         class_weights=class_weights,
     )
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=learning_rate, weight_decay=weight_decay
-    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", factor=0.5, patience=5
     )
@@ -94,12 +90,12 @@ def window_based_train(
         logger.info(f"Starting epoch {epoch + 1}/{epochs}")
         epoch_loss: float = 0.0
         for train_window in train_paths:
-            logging.info(
+            logging.info(  # noqa: LOG015
                 f"processing training window: {train_window}. "
                 f"Which is {train_paths.index(train_window) + 1}/{len(train_paths)}"
             )
             train_data: Data = load_graph_data(train_window)
-            train_node_uuids, train_node_index_ids, train_node_cmd_labels = (
+            _train_node_uuids, _train_node_index_ids, _train_node_cmd_labels = (
                 clean_graph_attributes_for_neighborloader(train_data)
             )
 
@@ -119,16 +115,9 @@ def window_based_train(
             )
             epoch_loss += loss
             scheduler.step(loss)
-            logger.info(
-                (
-                    f"Epoch {epoch + 1}, Train Window {train_window}, "
-                    f"Loss: {loss:.4f}"
-                )
-            )
+            logger.info(f"Epoch {epoch + 1}, Train Window {train_window}, Loss: {loss:.4f}")
         avg_epoch_loss = epoch_loss / len(train_paths)
-        logger.info(
-            f"Epoch {epoch + 1} completed. Average Loss: {avg_epoch_loss:.4f}"
-        )
+        logger.info(f"Epoch {epoch + 1} completed. Average Loss: {avg_epoch_loss:.4f}")
     logger.info("Base training completed.")
 
     if not enable_subset_finetune:
@@ -137,12 +126,7 @@ def window_based_train(
 
     if subset_finetune_freeze_backbone:
         _set_backbone_trainable(model, trainable=False)
-        logger.info(
-            (
-                "Subset fine-tuning: froze GAT backbone layers and "
-                "training mostly head."
-            )
-        )
+        logger.info("Subset fine-tuning: froze GAT backbone layers and training mostly head.")
 
     finetune_lr = (
         subset_finetune_learning_rate
@@ -151,12 +135,7 @@ def window_based_train(
     )
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     if not trainable_params:
-        logger.warning(
-            (
-                "No trainable parameters available for subset "
-                "fine-tuning; skipping."
-            )
-        )
+        logger.warning("No trainable parameters available for subset fine-tuning; skipping.")
         if subset_finetune_freeze_backbone:
             _set_backbone_trainable(model, trainable=True)
         logger.info("Training completed.")
@@ -253,9 +232,7 @@ def window_based_test(
     graph_storage: GraphStorage,
     batch_size: int,
     num_neighbors: list[int],
-    device: torch.device = torch.device(
-        "cuda" if torch.cuda.is_available() else "cpu"
-    ),
+    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),  # noqa: B008
     for_train_data: bool = False,
 ) -> ClassificationStorage:
     cls_storage = ClassificationStorage()
@@ -266,7 +243,7 @@ def window_based_test(
         data_paths: list[str] = graph_storage.extended_test_data_paths
 
     for test_window in data_paths:
-        logging.info(
+        logging.info(  # noqa: LOG015
             f"processing test window: {test_window}. "
             f"Which is {data_paths.index(test_window) + 1}/{len(data_paths)}"
         )
