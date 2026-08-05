@@ -1,6 +1,7 @@
-from pathlib import Path
-import torch
 import logging
+from pathlib import Path
+
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class ClassificationStorage:
         self.node_uuids: list[str] = []
         self.node_ids: list[str] = []
         self.window_path: list[str] = []
+        self.y_hat_proba: list[list[float]] = []  # Store probabilities for each class
 
     def save_to_file(self, filepath: str) -> None:
         data = {
@@ -26,6 +28,7 @@ class ClassificationStorage:
             "node_uuids": self.node_uuids,
             "node_ids": self.node_ids,
             "window_path": self.window_path,
+            "y_hat_proba": self.y_hat_proba,
         }
         file_path = Path(filepath)
         file_path.parent.mkdir(parents=True, exist_ok=True)

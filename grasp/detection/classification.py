@@ -26,10 +26,8 @@ class GAT(torch.nn.Module):
         edge_dim: int,
         dropout: float = 0.1,
         experiment_prefix: str = "default",
-        device: torch.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        ),
-        max_nodes: int = 900000,
+        device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+        max_nodes: int = 100000,
         use_class_weights: bool = False,
         class_weights: torch.Tensor | None = None,
     ) -> None:
@@ -125,9 +123,7 @@ def train(
 
     selected_ids_on_device: torch.Tensor | None = None
     if selected_input_node_ids is not None:
-        selected_ids_on_device = selected_input_node_ids.to(
-            device=device, dtype=torch.long
-        )
+        selected_ids_on_device = selected_input_node_ids.to(device=device, dtype=torch.long)
     optimized_steps = 0
 
     for data in train_loader:
@@ -191,8 +187,7 @@ def collect_hard_example_node_ids(
 
             input_node_ids = data.n_id[: data.batch_size]
             selected_node_ids.update(
-                int(nid)
-                for nid in input_node_ids[keep_mask].detach().cpu().tolist()
+                int(nid) for nid in input_node_ids[keep_mask].detach().cpu().tolist()
             )
     return selected_node_ids
 
@@ -231,6 +226,19 @@ def test(
 
             y_preds.append(y_hat)
             y_trues.append(y)
+            y_preds_propabilities = out.softmax(dim=-1)[: data.batch_size]  # type: ignore
+            # classification_storage.y_hat_proba.extend(y_preds_propabilities.detach().cpu().tolist())
+            topk_probs, topk_indices = torch.topk(
+                y_preds_propabilities.detach().cpu(),
+                k=min(3, y_preds_propabilities.size(-1)),
+                dim=-1,
+            )
+            classification_storage.y_hat_proba.extend(
+                [
+                    [(int(idx), float(prob)) for idx, prob in zip(idxs.tolist(), probs.tolist())]
+                    for idxs, probs in zip(topk_indices, topk_probs)
+                ]  # type: ignore
+            )
 
         y_preds_tensor = torch.cat(y_preds, dim=0)
         y_trues_tensor = torch.cat(y_trues, dim=0)
