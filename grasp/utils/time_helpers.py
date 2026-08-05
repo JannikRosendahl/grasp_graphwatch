@@ -1,32 +1,35 @@
-import pytz
+import time
 from datetime import datetime
 from time import mktime
-import time
+
+import pytz
 
 from grasp.schema import TimeStringFormat
 
 
-def datetime_to_ns_time_US(date: str) -> int:
+def datetime_to_ns_time_US(date: str, utc: bool = False) -> int:
     tz = pytz.timezone("US/Eastern")
-    timeArray: time.struct_time = time.strptime(
-        date, TimeStringFormat.FMT.value
-    )
-    dt = datetime.fromtimestamp(mktime(timeArray))
+    if utc:
+        tz = pytz.timezone("UTC")
+    timeArray: time.struct_time = time.strptime(date, TimeStringFormat.FMT.value)
+    dt = datetime.fromtimestamp(mktime(timeArray))  # noqa: DTZ006
     timestamp = tz.localize(dt)
     timestamp = timestamp.timestamp()
     timeStamp = timestamp * 1000000000
     return int(timeStamp)
 
 
-def ns_time_to_datetime_US_reverse(ns_time: int) -> str:
+def ns_time_to_datetime_US_reverse(ns_time: int, utc: bool = False) -> str:
     tz = pytz.timezone("US/Eastern")
+    if utc:
+        tz = pytz.timezone("UTC")
     timestamp = ns_time / 1_000_000_000  # Convert nanoseconds to seconds
     dt = datetime.fromtimestamp(timestamp, tz)
     return dt.strftime(TimeStringFormat.FMT.value)
 
 
 def parse(ts: str) -> datetime:
-    return datetime.strptime(ts, TimeStringFormat.FMT.value)
+    return datetime.strptime(ts, TimeStringFormat.FMT.value)  # noqa: DTZ007
 
 
 def fmt(dt: datetime) -> str:
