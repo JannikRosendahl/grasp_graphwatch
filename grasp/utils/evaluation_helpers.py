@@ -1,33 +1,29 @@
+from typing import Any
+
 from sklearn.metrics import (
     accuracy_score,
+    classification_report,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
-    classification_report,
 )
 
 from grasp.detection.classification_storage import ClassificationStorage
 
 
-def get_anomalies(
-    cs: ClassificationStorage, corrected: bool = True
-) -> list[int]:
+def get_anomalies(cs: ClassificationStorage, corrected: bool = True) -> list[int]:
     if not corrected:
         y_hat: list[int] = cs.y_hat
     else:
         y_hat = cs.y_hat_cluster_corrected
-    misclassified_indices = [
-        i for i, (true, pred) in enumerate(zip(cs.y, y_hat)) if true != pred
-    ]
+    misclassified_indices = [i for i, (true, pred) in enumerate(zip(cs.y, y_hat)) if true != pred]
     return misclassified_indices
 
 
 def create_cmd_to_id_inverse(
     subject_cmd_to_id: dict[str, int],
 ) -> dict[int, str]:
-    subject_cmd_to_id_inverse: dict[int, str] = {
-        v: k for k, v in subject_cmd_to_id.items()
-    }
+    subject_cmd_to_id_inverse: dict[int, str] = {v: k for k, v in subject_cmd_to_id.items()}
     return subject_cmd_to_id_inverse
 
 
@@ -42,7 +38,7 @@ def get_labels_from_cmd_ids(
 def compute_metrics(
     true_labels: list[int],
     pred_labels: list[int],
-) -> dict[str, float]:
+) -> dict[str, Any]:
     accuracy = accuracy_score(true_labels, pred_labels)
     precision = precision_score(true_labels, pred_labels)
     recall = recall_score(true_labels, pred_labels)
@@ -63,20 +59,12 @@ def compute_metrics(
 def compute_metrics_multiclass(
     true_labels: list[int],
     pred_labels: list[int],
-) -> dict[str, float | str]:
+) -> dict[str, Any]:
     accuracy = accuracy_score(true_labels, pred_labels)
-    precision = precision_score(
-        true_labels, pred_labels, average="weighted", zero_division=0
-    )
-    recall = recall_score(
-        true_labels, pred_labels, average="weighted", zero_division=0
-    )
-    f1 = f1_score(
-        true_labels, pred_labels, average="weighted", zero_division=0
-    )
-    macro_f1 = f1_score(
-        true_labels, pred_labels, average="macro", zero_division=0
-    )
+    precision = precision_score(true_labels, pred_labels, average="weighted", zero_division=0)
+    recall = recall_score(true_labels, pred_labels, average="weighted", zero_division=0)
+    f1 = f1_score(true_labels, pred_labels, average="weighted", zero_division=0)
+    macro_f1 = f1_score(true_labels, pred_labels, average="macro", zero_division=0)
 
     report = classification_report(true_labels, pred_labels)
 
