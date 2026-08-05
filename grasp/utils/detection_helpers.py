@@ -1,10 +1,11 @@
-import torch
+import logging
+
 import numpy as np
+import torch
 from torch_geometric.data import Data
 
 from grasp.detection.classification_storage import ClassificationStorage
 from grasp.detection.clustering import ClusterManager
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,9 @@ def prepare_data(
     data: Data,
     max_nodes=900000,
 ) -> Data:
+    # print(f"data before max node constrain: {data}")
     data = apply_max_node_constrain(data, max_nodes)
+    # print(f"data after max node constrain: {data}")
     data = zero_out_executable_node_features(data)
     return data
 
@@ -40,16 +43,12 @@ def check_classification_with_clusters(
 ) -> None:
     true_labels: list[int] = cls_storage.y
     pred_labels: list[int] = cls_storage.y_hat
-    allowed_clusters: dict[int, set[int]] = (
-        cluster_manager.misclassification_clusters
-    )
+    allowed_clusters: dict[int, set[int]] = cluster_manager.misclassification_clusters
 
     for y, y_hat in zip(true_labels, pred_labels):
         allowed: set[int] = allowed_clusters.get(y, set[int]())
 
-        if (
-            y_hat == y or y_hat in allowed
-        ):  # treat as correct by mapping prediction to truth
+        if y_hat == y or y_hat in allowed:  # treat as correct by mapping prediction to truth
             cls_storage.y_hat_cluster_corrected.append(y)
         else:
             cls_storage.y_hat_cluster_corrected.append(y_hat)
@@ -75,13 +74,13 @@ def extract_node_cmd_labels_uuids_and_ids(
 def compute_class_weights(train_data: Data, num_classes: int) -> torch.Tensor:
     """Compute class weights using inverse frequency normalization."""
     y = train_data.y
-    if y.dim() > 1:
-        y = y.argmax(dim=1)
+    if y.dim() > 1:  # type: ignore
+        y = y.argmax(dim=1)  # type: ignore
 
     # Count samples per class
-    class_counts = torch.bincount(y, minlength=num_classes)
+    class_counts = torch.bincount(y, minlength=num_classes)  # type: ignore
     # Avoid division by zero
     class_counts = torch.clamp(class_counts, min=1)
     # Weight = total_samples / (num_classes * class_count)
-    weights = len(y) / (num_classes * class_counts.float())
+    weights = len(y) / (num_classes * class_counts.float())  # type: ignore
     return weights
