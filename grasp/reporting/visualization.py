@@ -138,7 +138,16 @@ def visualize_misclassification_timeframes(
     with open(detailed_report_path, "r") as f:
         dr = json.load(f)
 
-    df = pd.DataFrame(dr.get("detailed_detection").get("anomalies"))
+    anomalies = dr.get("detailed_detection", {}).get("anomalies", [])
+    if not anomalies:
+        logger.info("No anomalies in detailed_detection; nothing to visualize")
+        return []
+
+    df = pd.DataFrame(anomalies)
+    if "time_window" not in df.columns or df["time_window"].isnull().all():
+        logger.info("No valid time_window entries in anomalies; nothing to visualize")
+        return []
+
     df[["start_ts_ns", "end_ts_ns"]] = (
         df["time_window"].str.extract(r".*_(\d+)_to_(\d+)_extended\.pt$").astype("int64")
     )
