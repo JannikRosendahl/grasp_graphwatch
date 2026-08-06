@@ -49,9 +49,8 @@ def get_event_table_files() -> list[Path]:
     return sorted(EVENT_DIR.glob("*.csv"))
 
 
-# def build_create_table_sql(table_name: str, columns: Iterable[str]) -> str:
-#     col_defs = ", ".join(f"{quote_identifier(col)} TEXT" for col in columns)
-#     return f"CREATE TABLE IF NOT EXISTS {quote_identifier(table_name)} ({col_defs});"
+def drop_table(cur, table_name: str):
+    cur.execute(f"DROP TABLE IF EXISTS {quote_identifier(table_name)};")
 
 
 def build_create_table_sql(table_name: str, columns: Iterable[str]) -> str:
@@ -134,6 +133,7 @@ def main():
                     print(f"Missing: {file_path}, skipping")
                     continue
 
+                drop_table(cur, table_name)
                 upload_file(cur, table_name, file_path)
 
             # ---- Event table (multiple CSVs) ----
@@ -144,6 +144,7 @@ def main():
             if not event_files:
                 print("No event files found")
             else:
+                drop_table(cur, "event_table")
                 for file_path in event_files:
                     upload_file(cur, "event_table", file_path)
 

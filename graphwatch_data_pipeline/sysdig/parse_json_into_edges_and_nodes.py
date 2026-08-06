@@ -33,8 +33,14 @@ TUPLE_RE = re.compile(r"\btuple=(?P<tuple>\S+)")
 EXE_RE = re.compile(r"\bexe=(?P<exe>\S+)")
 COMM_RE = re.compile(r"\bcomm=(?P<comm>\S+)")
 SIZE_RE = re.compile(r"\bsize=(?P<size>\d+)")
-DATA_RE = re.compile(r"\bdata=(?P<data>.*?)(?:\s+fd=|\s+size=|\s+tuple=|$)")
+RES_RE = re.compile(r"\bres=(?P<res>-?\d+)")
+FD_NUM_RE = re.compile(r"\bfd=(?P<fd>-?\d+)")
 PROCESS_NUMERIC_FIELD_TEMPLATE = r"\b{key}=(?P<value>-?\d+)(?:\([^)]*\))?"
+
+# Negative res codes that don't indicate a real failure (e.g. non-blocking
+# connect() reporting EINPROGRESS, or a non-blocking read/write reporting
+# EAGAIN/EWOULDBLOCK).
+NON_FATAL_RES_CODES = {-11, -115}
 
 # ------------------------------
 # Node helpers
@@ -101,12 +107,25 @@ def extract_size(info):
     return int(match.group("size")) if match else None
 
 
-def extract_data_preview(info, max_len=120):
-    match = DATA_RE.search(info)
-    if not match:
-        return ""
-    data = match.group("data").strip()
-    return data[:max_len] + "..." if len(data) > max_len else data
+def event_succeeded(info):
+    """Best-effort check that a syscall event actually succeeded.
+
+    Sysdig reports failures as a negative res=-<errno> (e.g. connect(),
+    read()/write()) or, for open()/openat(), as a negative fd. Some negative
+    res codes (EAGAIN/EWOULDBLOCK, EINPROGRESS) are expected on non-blocking
+    fds and are not treated as failures.
+    """
+    res_match = RES_RE.search(info)
+    if res_match:
+        res = int(res_match.group("res"))
+        if res < 0 and res not in NON_FATAL_RES_CODES:
+            return False
+
+    fd_match = FD_NUM_RE.search(info)
+    if fd_match and int(fd_match.group("fd")) < 0:
+        return False
+
+    return True
 
 
 def extract_process_identity(event):
@@ -358,7 +377,7 @@ def collect_nodes(input_dir):
 
         if evt_type in ("execve", "execveat"):
             executable = extract_exe(evt_info)
-            if executable:
+            if executable and event_succeeded(evt_info):
                 ensure_process(processes, tid)["exe"] = executable
                 add_node(nodes, file_node(executable), "file", executable)
             continue
@@ -369,11 +388,12 @@ def collect_nodes(input_dir):
             process["exit_timestamp"] = timestamp
             continue
 
-        _, resource_type, resource_value = extract_resource(evt_info)
-        if resource_type == "file" and resource_value:
-            add_node(nodes, file_node(resource_value), "file", resource_value)
-        elif resource_type == "socket" and resource_value:
-            add_node(nodes, socket_node(resource_value), "socket", resource_value)
+        if event_succeeded(evt_info):
+            _, resource_type, resource_value = extract_resource(evt_info)
+            if resource_type == "file" and resource_value:
+                add_node(nodes, file_node(resource_value), "file", resource_value)
+            elif resource_type == "socket" and resource_value:
+                add_node(nodes, socket_node(resource_value), "socket", resource_value)
 
         if event_count % PROGRESS_INTERVAL == 0:
             print(
@@ -517,7 +537,7 @@ def process_and_write_edges(input_dir, resolved_process_tids):
 
                 if evt_type in ("execve", "execveat"):
                     executable = extract_exe(evt_info)
-                    if executable and tid in resolved_process_tids:
+                    if executable and tid in resolved_process_tids and event_succeeded(evt_info):
                         edge = make_edge(
                             process_id,
                             file_node(executable),
@@ -568,7 +588,7 @@ def process_and_write_edges(input_dir, resolved_process_tids):
                     elif evt_type == "close" and direction == "<":
                         edge_spec = (process_id, resource_id, "close")
 
-                if edge_spec and tid in resolved_process_tids:
+                if edge_spec and tid in resolved_process_tids and event_succeeded(evt_info):
                     edge = make_edge(
                         edge_spec[0],
                         edge_spec[1],

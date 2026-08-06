@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import threading
 from pathlib import Path
 
 # ------------------------------
@@ -10,12 +11,12 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 
-SCAP_DIR = Path("output/sysdig_scaps")
+SCAP_DIR = BASE_DIR / "input" / "sysdig_scaps"
 
 
 # Output directory
-OUTPUT_DIR = BASE_DIR / "input" / "json"
-OUTPUT_DIR.mkdir(exist_ok=True)
+OUTPUT_DIR = BASE_DIR / "output" / "json"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def scap_to_json(scap_file, output_file):
@@ -30,6 +31,17 @@ def scap_to_json(scap_file, output_file):
     with open(output_file, "w") as outfile:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
+        # Drain stderr on a separate thread so a chatty sysdig process can't
+        # fill the stderr pipe buffer and deadlock while we're only reading stdout.
+        stderr_lines: list[str] = []
+
+        def drain_stderr():
+            for line in proc.stderr:  # type: ignore
+                stderr_lines.append(line)
+
+        stderr_thread = threading.Thread(target=drain_stderr, daemon=True)
+        stderr_thread.start()
+
         for line in proc.stdout:  # type: ignore
             line = line.strip()
 
@@ -43,10 +55,10 @@ def scap_to_json(scap_file, output_file):
                 continue
 
         proc.wait()
+        stderr_thread.join()
 
         if proc.returncode != 0:
-            error = proc.stderr.read()  # type: ignore
-            raise RuntimeError(f"sysdig failed for {scap_file}:\n{error}")
+            raise RuntimeError(f"sysdig failed for {scap_file}:\n{''.join(stderr_lines)}")
 
 
 if __name__ == "__main__":

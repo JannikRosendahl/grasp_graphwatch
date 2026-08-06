@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Export normalized graph tables from parse_data.py nodes.csv and edges.csv.
+"""Export normalized graph tables from parse_json_into_edges_and_nodes.py nodes.csv and edges.csv.
 
 Input:
     output/edges_and_nodes/nodes.csv
@@ -34,23 +34,22 @@ NODES_FILE = INPUT_DIR / "nodes.csv"
 EDGES_FILE = INPUT_DIR / "edges.csv"
 
 
-# Operations produced by parse_data.py.
-# Keep this list lowercase.
+# Operations produced by parse_json_into_edges_and_nodes.py (see EDGE_FIELDNAMES
+# and make_edge()/process_and_write_edges() there). Keep this list in sync with
+# the "action" values actually written there, and keep it lowercase.
 EDGE_OPERATION_FILTERS = {
     "accept",
     "close",
     "connect",
     "exec",
-    "execve",
     "fork",
     "clone",
+    "vfork",
     "open",
     "read",
     "recv",
     "send",
-    "spawn",
     "write",
-    "exit",
 }
 
 
