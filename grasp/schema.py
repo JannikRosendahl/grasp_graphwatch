@@ -205,10 +205,16 @@ class SysdigOperation(str, Enum):
     CONNECT = "connect"
     CREATE = "create"
     EXECVE = "execve"
+    EXEC = "exec"
     EXIT = "exit"
     FORK = "fork"
     KILL = "kill"
     OPEN = "open"
+    READ = "read"
+    WRITE = "write"
+    VFORK = "vfork"
+    RECV = "recv"
+    SEND = "send"
 
 
 class TcOperation(str, Enum):
