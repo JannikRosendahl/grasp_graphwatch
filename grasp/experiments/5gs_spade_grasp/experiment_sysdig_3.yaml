@@ -46,5 +46,5 @@ detection:
   shuffle_train_paths: true
   shuffle_train_batches: true
 attack_windows_for_visualization:
-  - start_time: "2026-06-23 12:00:00"
-    end_time: "2026-06-23 12:30:00"
+  - start_time: "2026-08-05 06:00:00"
+    end_time: "2026-08-05 06:00:00"
