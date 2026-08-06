@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import torch
 from torch_geometric.data import Data, InMemoryDataset
+from torch_geometric.data.data import DataEdgeAttr, DataTensorAttr
+from torch_geometric.data.storage import GlobalStorage
 
 from grasp.db import connector
 from grasp.schema import EdgeColumns, NodeColumns, NodeType
@@ -20,6 +22,12 @@ from grasp.utils.graph_helpers import (
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# PyG registers Data/HeteroData/etc. as torch.load(weights_only=True)-safe globals
+# on import, but not these internal storage classes used when pickling a Data
+# object. Without this, InMemoryDataset.load() silently falls back to
+# weights_only=False and emits a UserWarning on every load.
+torch.serialization.add_safe_globals([DataEdgeAttr, DataTensorAttr, GlobalStorage])
 
 
 class GraspGraph(InMemoryDataset):
@@ -52,11 +60,12 @@ class GraspGraph(InMemoryDataset):
         processed_path = osp.join(self.processed_dir, self.file_name)
         if osp.exists(processed_path):
             self.load(processed_path)
+            assert self._data is not None, "load() must populate _data"
             logger.info(f"Loaded graph from {processed_path}.")
             logger.info(
-                f"Graph has {self.data.num_nodes} nodes, "
-                f"{self.data.num_edges} edges, and "
-                f"{self.data.subject_mask.sum().item()} subjects."
+                f"Graph has {self._data.num_nodes} nodes, "
+                f"{self._data.num_edges} edges, and "
+                f"{self._data.subject_mask.sum().item()} subjects."
             )
         else:
             logger.warning(
