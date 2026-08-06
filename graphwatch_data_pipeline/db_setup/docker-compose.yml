@@ -1,0 +1,23 @@
+services:
+  grasp_graphwatch_postgres:
+    image: postgres:17
+    container_name: grasp_graphwatch_postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB_NAME}          # optional: create a default DB
+
+    ports:
+      - "${POSTGRES_PORT}:5432"               # host 8888 → container 5432
+
+    volumes:
+      - ./.postgres_data_grasp_graphwatch:/var/lib/postgresql/data   # bind mount for persistence
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s           # give Postgres a bit of time to start

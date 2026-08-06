@@ -15,3 +15,5 @@ db_setup/.env
 graphwatch_data_pipeline/sysdig/input/*
 graphwatch_data_pipeline/sysdig/output/*
 graphwatch_data_pipeline/sysdig/.env_upload
+graphwatch_data_pipeline/setup_db/.env
+graphwatch_data_pipeline/setup_db/.postgres_data_grasp_graphwatch/
