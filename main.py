@@ -185,10 +185,10 @@ def main() -> None:
 
     cls_storage_test.save_to_file(str(storage_paths["classification_test"]))
 
-    # temporary: save cluster_predictions to a file for analysis
+    # temporary: save classification_predictions to a file for analysis
     cls_predictions_file = (
         Path(storage_paths["classification_test"]).parent
-        / f"{config.EXPERIMENT_PREFIX}_cluster_predictions.json"
+        / f"{config.EXPERIMENT_PREFIX}_classification_predictions.json"
     )
     cls_predictions_file.parent.mkdir(parents=True, exist_ok=True)
     with open(cls_predictions_file, "w", encoding="utf-8") as f:
