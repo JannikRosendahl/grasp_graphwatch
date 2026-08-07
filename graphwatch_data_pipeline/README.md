@@ -13,6 +13,7 @@ target host, ship the recording to the GRASP machine, load it into Postgres, con
 6. [Create an experiment config](#6-create-an-experiment-config) for that time range.
 7. [Run the experiment](#7-run-the-experiment).
 8. [Review the results](#8-review-the-results).
+9. [Optional: Explore reported anomalies with contextualization](#9-optional-explore-reported-anomalies-with-contextualization).
 
 ## 1. Record a scenario on the target host
 
@@ -163,5 +164,27 @@ the `sysdig` dataset — named after the experiment prefix and run parameters:
 - `<experiment_prefix>_..._detailed_report.json` — the detailed report, listing every
   detected anomaly individually so each one can be traced back and further analyzed.
 
+## 9. Optional: Explore reported anomalies with contextualization
 
+The reports from step 8 list *which* nodes were flagged as anomalies, but not *why*.
+The PIDS contextualization workbench compares each reported anomaly against sampled
+training executables for its predicted and true labels. This should help in determining
+whether it is a false positive or a true anomaly. See the
+[grasp_contextualization README](../grasp_contextualization/README.md) for the full
+workflow; from the repository root:
+
+```bash
+pip install -r grasp_contextualization/requirements.txt
+python grasp_contextualization/pids_analysis_engine.py \
+  --data-dir . \
+  --dataset sysdig \
+  --experiment-prefix sysdig_1 \
+  --context-size 30 \
+  --step-size 10 \
+  --output-dir pids_runs/sysdig_1_report
+streamlit run grasp_contextualization/pids_workbench_app.py
+```
+
+`--dataset`/`--experiment-prefix`/`--context-size`/`--step-size` must match the
+experiment config used in step 6.
 
