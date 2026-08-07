@@ -80,6 +80,18 @@ If everything runs on the same host and you followed [db_setup README](db_setup/
 python main.py --experiment-config grasp/experiments/all_experiments/cadets_e3_default/experiment_cadets_e3.yaml
 ```
 
+## Optional: Explore reported anomalies with contextualization
+
+After a run, you can optionally use the PIDS contextualization workbench to
+inspect individual reported anomalies against sampled training examples for
+their predicted and true labels — a first-pass aid for deciding whether each
+is a false positive or a real anomaly. See the
+[grasp_contextualization README](grasp_contextualization/README.md) for the
+full workflow (generating a report, then browsing it):
+
+```bash
+streamlit run grasp_contextualization/pids_workbench_app.py
+```
 
 ## License
 
