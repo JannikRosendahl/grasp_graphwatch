@@ -224,6 +224,9 @@ def prediction_confidence_frame(
     grasp/evaluation/evaluation_storage.py, which builds pred_cmd_labels from
     y_hat_cluster_corrected, not the raw y_hat). The two can legitimately
     disagree, so each row flags whether it matches the reported pred_label.
+    Each row also carries the ground-truth true_label and whether it matches,
+    so an analyst can tell "the raw model actually got it right, cluster
+    correction just overrode it" apart from "the raw model was wrong too".
     """
     id_to_label = {int(v): str(k) for k, v in gs.train_subject_cmd_to_id.items()}
     known_true_labels = set(gs.train_subject_cmd_to_id.keys())
@@ -242,6 +245,8 @@ def prediction_confidence_frame(
                     "probability": prob,
                     "reported_pred_label": anom.pred_label,
                     "matches_reported_pred_label": class_label == anom.pred_label,
+                    "true_label": anom.true_label,
+                    "matches_true_label": class_label == anom.true_label,
                     "true_label_known_in_training": anom.true_label in known_true_labels,
                 }
             )

@@ -77,14 +77,6 @@ Open the printed local URL in a browser. Pages, in the sidebar:
 - **Overview** — aggregate metrics across all anomalies: conclusions, per-view score distributions, ablation summary, per-anomaly classifier quality (learning quality), prediction confidence, and any failures.
 - **Context View** — the analyst's decision view for one anomaly at a time: TARGET vs. a predicted-label training sample vs. a true-label training sample, with side-by-side graphs, event sequences, tables, and diffs. Both samples default to the closest match but each has its own dropdown to pick a different ranked candidate instead. Also shows the target node's own raw classifier confidence (top-3). This is the primary page for deciding false positive vs. real anomaly. If one side has no training samples at all (most commonly the true-label side, when that true class was never seen in training), the page degrades gracefully — it shows whatever side *is* available instead of failing outright, and only errors if neither side has anything to compare against.
 
-**Prediction confidence** (`prediction_confidence.csv`, shown in both Overview and Context View): the classifier's raw top-3 softmax output for each anomaly's own node, read directly from that experiment's `test_cls_storage.pt`. This is the **raw, uncorrected** model output — it is *not* the same as `pred_label` shown elsewhere in the report, which is GRASP's cluster-corrected prediction (see `grasp/evaluation/evaluation_storage.py`). The two can legitimately disagree; each row is flagged with whether it matches the reported `pred_label`, so a disagreement reads as "cluster correction overrode the raw model here" rather than looking like a bug. Each row also flags `true_label_known_in_training` — when false, the classifier never saw that true class during training at all, so it had no way to predict it correctly (this is common: in a typical sysdig run, roughly a third of anomalies have a true class unseen in training).
-
-**Anomaly occurrences:** the same `anomaly_id` (a process's `node_index_id`) can be detected in multiple overlapping sliding time-windows, each with its own independent classification — sometimes with a different predicted label per window. Context View shows an "Occurrence (time window)" picker whenever an anomaly_id has more than one; every downstream value (target graph, prediction/true samples, confidence) is scoped to whichever occurrence is selected, so nothing gets silently mixed across occurrences.
-
-Each page's sidebar has a "Report search roots" box (also settable via the
-`PIDS_REPORT_ROOTS` env var, colon-separated) — it auto-discovers report
-directories produced by step 1 under those roots.
-
 ## Notes
 
 - The engine and workbench must agree on dataset/context/step-size naming — both resolve files as `<prefix>_dataset-<dataset>_context_size-<c>_step_size-<s>_<suffix>`, matching what `main.py`'s experiment run produces.

@@ -103,7 +103,10 @@ def render_prediction_confidence(
     if conf.empty:
         return
     conf = conf.sort_values("rank")
+    has_true_label = "true_label" in conf.columns
     st.markdown("**Target's raw classifier confidence**")
+    if has_true_label:
+        st.caption(f"True label: **{conf.iloc[0]['true_label']}**")
     if "true_label_known_in_training" in conf.columns and not bool(
         conf["true_label_known_in_training"].iloc[0]
     ):
@@ -114,15 +117,23 @@ def render_prediction_confidence(
         )
     cols = st.columns(len(conf))
     for col, (_, row) in zip(cols, conf.iterrows()):
-        matched = bool(row.get("matches_reported_pred_label", False))
-        label = f"#{int(row['rank'])} {row['class_label']}" + (
-            " ✓ matches reported" if matched else ""
-        )
+        badges = []
+        if bool(row.get("matches_reported_pred_label", False)):
+            badges.append("reported")
+        if has_true_label and bool(row.get("matches_true_label", False)):
+            badges.append("true")
+        badge_text = f" ✓ matches {' & '.join(badges)}" if badges else ""
+        label = f"#{int(row['rank'])} {row['class_label']}{badge_text}"
         col.metric(label, f"{float(row['probability']):.1%}")
+    missing = []
     if not conf["matches_reported_pred_label"].any():
+        missing.append(f"reported prediction ({conf.iloc[0]['reported_pred_label']})")
+    if has_true_label and not conf["matches_true_label"].any():
+        missing.append(f"true label ({conf.iloc[0]['true_label']})")
+    if missing:
         st.caption(
-            f"Reported prediction ({conf.iloc[0]['reported_pred_label']}) is not in the raw "
-            "top-3 — cluster-based correction picked a different label than the raw model did."
+            f"Not in the raw top-3: {' and '.join(missing)}. Cluster-based correction and/or "
+            "the raw model itself disagree with these."
         )
 
 

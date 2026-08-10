@@ -125,7 +125,10 @@ def page_overview() -> None:
             "cluster-based misclassification correction. `reported_pred_label` is the "
             "corrected prediction shown everywhere else in this report (Conclusions, "
             "Context View) — the two can legitimately disagree; "
-            "`matches_reported_pred_label` flags which raw row, if any, agrees with it."
+            "`matches_reported_pred_label` flags which raw row, if any, agrees with it. "
+            "`true_label`/`matches_true_label` do the same against the ground truth, so "
+            "you can tell 'the raw model was actually right, correction overrode it' apart "
+            "from 'the raw model was wrong too'."
         )
         if prediction_confidence.empty:
             st.info(
@@ -138,6 +141,13 @@ def page_overview() -> None:
                 "matches_reported_pred_label"
             ].any()
             agree_rate = float(agree.mean()) if not agree.empty else float("nan")
+            if "matches_true_label" in prediction_confidence.columns:
+                true_agree = prediction_confidence.groupby(occurrence_cols)[
+                    "matches_true_label"
+                ].any()
+                true_agree_rate = float(true_agree.mean()) if not true_agree.empty else float("nan")
+            else:
+                true_agree_rate = float("nan")
             per_occurrence = prediction_confidence.drop_duplicates(occurrence_cols)
             unseen_rate = (
                 float((~per_occurrence["true_label_known_in_training"]).mean())
@@ -145,12 +155,16 @@ def page_overview() -> None:
                 and not per_occurrence.empty
                 else float("nan")
             )
-            pc1, pc2 = st.columns(2)
+            pc1, pc2, pc3 = st.columns(3)
             pc1.metric(
                 "Reported prediction found in raw top-3",
                 f"{agree_rate:.1%}" if not pd.isna(agree_rate) else "-",
             )
             pc2.metric(
+                "True label found in raw top-3",
+                f"{true_agree_rate:.1%}" if not pd.isna(true_agree_rate) else "-",
+            )
+            pc3.metric(
                 "Anomalies with true class unseen in training",
                 f"{unseen_rate:.1%}" if not pd.isna(unseen_rate) else "-",
             )
