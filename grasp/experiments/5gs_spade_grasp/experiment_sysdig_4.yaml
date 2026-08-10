@@ -1,6 +1,6 @@
 dataset:
   name: sysdig
-experiment_prefix: sysdig_1
+experiment_prefix: sysdig_4
 storage:
   graph_root_dir: ./data/graphs/sysdig
 graph_management:
@@ -8,12 +8,12 @@ graph_management:
 ground_truth:
   base_dir: ./ground_truth/atlasv2_edr
 times:
-  train_start: ["2026-08-03 13:00:00"]
-  # train_start: ["2026-08-17 00:00:00"]
-  # train_end: ["2026-06-11 7:59:59"] # 2026-06-11 12:16:48
-  train_end: ["2026-08-03 13:59:59"] # 2026-06-11 12:16:48
-  test_start: ["2026-08-03 13:40:00"]
-  test_end: ["2026-08-03 13:59:59"]
+  train_start: ["2026-08-06 07:00:00"]
+  # train_end: ["2026-08-05 23:59:59"] 
+  # test_start: ["2026-08-05 00:00:00"]
+  train_end: ["2026-08-06 23:59:59"] 
+  test_start: ["2026-08-07 00:00:00"]
+  test_end: ["2026-08-07 9:00:00"]
   context_size: 30 # in minutes
   step_size: 30 # in minutes 
 location_transformer:
@@ -46,5 +46,5 @@ detection:
   shuffle_train_paths: true
   shuffle_train_batches: true
 attack_windows_for_visualization:
-  - start_time: "2026-06-23 12:00:00"
-    end_time: "2026-06-23 12:30:00"
+  - start_time: "2026-08-07 06:00:00"
+    end_time: "2026-08-07 06:00:00"

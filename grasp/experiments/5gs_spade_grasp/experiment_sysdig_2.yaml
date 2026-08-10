@@ -15,7 +15,7 @@ times:
   test_start: ["2026-08-04 11:30:00"]
   test_end: ["2026-08-04 12:59:59"]
   context_size: 30 # in minutes
-  step_size: 10 # in minutes 
+  step_size: 30 # in minutes 
 location_transformer:
   max_location_length: 100 
   hidden_dim: 16
