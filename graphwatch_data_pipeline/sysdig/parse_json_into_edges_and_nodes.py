@@ -4,6 +4,7 @@ import csv
 import html
 import json
 import re
+import shutil
 import sqlite3
 import tempfile
 from functools import cache
@@ -41,6 +42,15 @@ PROCESS_NUMERIC_FIELD_TEMPLATE = r"\b{key}=(?P<value>-?\d+)(?:\([^)]*\))?"
 # connect() reporting EINPROGRESS, or a non-blocking read/write reporting
 # EAGAIN/EWOULDBLOCK).
 NON_FATAL_RES_CODES = {-11, -115}
+
+def clear_directory(directory):
+    """Delete all existing entries in directory, leaving it empty."""
+    for entry in directory.iterdir():
+        if entry.is_dir():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
+
 
 # ------------------------------
 # Node helpers
@@ -656,6 +666,10 @@ def main():
         raise SystemExit(f"[!] No .json, .jsonl, or .ndjson files found in {INPUT_DIR}")
 
     print(f"[*] Input files: {len(files)}")
+
+    print(f"[*] Clearing {OUTPUT_DIR} before parsing...")
+    clear_directory(OUTPUT_DIR)
+
     print("[*] Pass 1: collecting nodes and process metadata")
     nodes, resolved_process_tids, pass1_count = collect_nodes(INPUT_DIR)
     print(f"[*] Pass 1 events:       {pass1_count:,}")

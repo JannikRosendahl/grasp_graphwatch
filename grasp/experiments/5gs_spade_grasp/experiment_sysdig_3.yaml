@@ -8,7 +8,7 @@ graph_management:
 ground_truth:
   base_dir: ./ground_truth/atlasv2_edr
 times:
-  train_start: ["2026-08-03 13:00:00"]
+  train_start: ["2026-08-04 20:00:00"]
   # train_end: ["2026-08-05 23:59:59"] 
   # test_start: ["2026-08-05 00:00:00"]
   train_end: ["2026-08-05 05:59:59"] 

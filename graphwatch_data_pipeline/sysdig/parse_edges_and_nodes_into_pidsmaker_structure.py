@@ -15,6 +15,7 @@ Output:
 
 from __future__ import annotations
 
+import shutil
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -122,6 +123,15 @@ EVENT_COLUMNS = [
 # ------------------------------
 # BASIC HELPERS
 # ------------------------------
+
+
+def _clear_directory(directory: Path) -> None:
+    """Delete all existing entries in directory, leaving it empty."""
+    for entry in directory.iterdir():
+        if entry.is_dir():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
 
 
 def _read_csv_required(path: Path) -> pd.DataFrame:
@@ -556,6 +566,9 @@ def main() -> None:
     print(f"output dir:  {OUTPUT_DIR}")
 
     _run_sanity_checks()
+
+    print(f"[*] Clearing {OUTPUT_DIR} before parsing...")
+    _clear_directory(OUTPUT_DIR)
 
     node_df = _prepare_node_frame()
     vertex_index_map = _build_vertex_index_map(node_df)
