@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import shutil
 import subprocess
 import threading
 from pathlib import Path
@@ -17,6 +18,15 @@ SCAP_DIR = BASE_DIR / "input" / "sysdig_scaps"
 # Output directory
 OUTPUT_DIR = BASE_DIR / "output" / "json"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def clear_directory(directory):
+    """Delete all existing entries in directory, leaving it empty."""
+    for entry in directory.iterdir():
+        if entry.is_dir():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
 
 
 def scap_to_json(scap_file, output_file):
@@ -70,6 +80,9 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"No scap* files found in {SCAP_DIR}")
 
     print(f"[*] Found {len(scap_files)} files")
+
+    print(f"[*] Clearing {OUTPUT_DIR} before conversion...")
+    clear_directory(OUTPUT_DIR)
 
     for scap_file in sorted(scap_files):
         # Create output file per input file
