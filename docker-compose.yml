@@ -1,0 +1,64 @@
+# Containerized `grasp` (training/detection run) and the `grasp_contextualization`
+# workbench, sharing one image (see Dockerfile). CPU by default — layer
+# docker-compose.gpu.yml on top for GPU. See README's "Docker" section.
+#
+# Postgres is optional and NOT started by default: `grasp`/`workbench` are meant to
+# reach an existing database (e.g. one started via
+# graphwatch_data_pipeline/db_setup/docker-compose.yml) through host.docker.internal.
+# To use the bundled Postgres instead, run with `--profile db` and set db_host=postgres
+# in .env.docker (see .env.docker.example).
+
+x-grasp-image: &grasp-image
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: grasp:latest
+  env_file:
+    - .env.docker
+  volumes:
+    - .:/app
+  working_dir: /app
+  # Lets db_host=host.docker.internal resolve on Linux too, not just Docker Desktop.
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: grasp_postgres
+    restart: unless-stopped
+    profiles: ["db"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-grasp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-grasp}
+      POSTGRES_DB: ${POSTGRES_DB_NAME:-sysdig}
+    ports:
+      - "${POSTGRES_PORT:-8888}:5432"
+    volumes:
+      - ./.postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-grasp} -d ${POSTGRES_DB_NAME:-sysdig}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  grasp:
+    <<: *grasp-image
+    container_name: grasp
+    # command:
+    #   - python
+    #   - main.py
+    #   - --experiment-config
+    #   - grasp/experiments/all_experiments/sysdig_spade/experiment_sysdig_1.yaml
+
+  workbench:
+    <<: *grasp-image
+    container_name: grasp_workbench
+    ports:
+      - "8501:8501"
+    command:
+      - streamlit
+      - run
+      - grasp_contextualization/pids_workbench_app.py
+      - --server.address=0.0.0.0

@@ -128,7 +128,7 @@ Run this for both the min and max value to get the usable time window for the re
 ## 6. Create an experiment config
 
 Create (or copy an existing one as a template, e.g.
-[`grasp/experiments/5gs_spade_grasp/experiment_sysdig_1.yaml`](../grasp/experiments/5gs_spade_grasp/experiment_sysdig_1.yaml))
+[`grasp/experiments/sysdig_spade/experiment_sysdig_1.yaml`](../grasp/experiments/sysdig_spade/experiment_sysdig_1.yaml))
 an experiment YAML under `grasp/experiments/`, and fill in the `times:` section using the
 human-readable timestamps from step 5:
 
@@ -149,7 +149,7 @@ times:
 From the repository root:
 
 ```bash
-python main.py --experiment-config grasp/experiments/5gs_spade_grasp/experiment_sysdig_1.yaml
+python main.py --experiment-config grasp/experiments/sysdig_spade/experiment_sysdig_1.yaml
 ```
 
 Replace `--experiment-config` argument with the path to the config created in step 6.
