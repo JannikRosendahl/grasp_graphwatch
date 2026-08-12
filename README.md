@@ -11,7 +11,7 @@ git clone <repo-url>
 cd grasp_graphwatch
 ```
 
-2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), a fast Python package/project manager that replaces `pip` + `venv`:
+2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), Python package/project manager that replaces `pip` + `venv`:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
