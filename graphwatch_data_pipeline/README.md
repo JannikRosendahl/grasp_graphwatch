@@ -174,14 +174,7 @@ whether it is a false positive or a true anomaly. See the
 workflow; from the repository root:
 
 ```bash
-pip install -r grasp_contextualization/requirements.txt
-python grasp_contextualization/pids_analysis_engine.py \
-  --data-dir . \
-  --dataset sysdig \
-  --experiment-prefix sysdig_1 \
-  --context-size 30 \
-  --step-size 10 \
-  --output-dir pids_runs/sysdig_1_report
+uv pip install -r grasp_contextualization/requirements.txt
 streamlit run grasp_contextualization/pids_workbench_app.py
 ```
 

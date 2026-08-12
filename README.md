@@ -8,36 +8,47 @@ Graph-Based Anomaly Detection Through Self-Supervised Classification
 
 ```bash
 git clone <repo-url>
-cd grasp
+cd grasp_graphwatch
 ```
 
-2. Create a virtual environment (Python 3.10+ recommended):
+2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), a fast Python package/project manager that replaces `pip` + `venv`:
 
 ```bash
-python -m venv .venv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Verify it's on your `PATH`:
+
+```bash
+uv --version
+```
+
+3. Create a virtual environment pinned to Python 3.12.7 (uv downloads that interpreter automatically if it isn't already installed):
+
+```bash
+uv venv --python 3.12.7
 source .venv/bin/activate
-python -m pip install --upgrade pip
 ```
 
-3. Install core dependencies:
+4. Install core dependencies:
 
 ```bash
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
-4. Install PyTorch and PyTorch Geometric for your platform (choose the right wheel for your CUDA/CPU setup, see https://pytorch.org/get-started/locally/ and https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html):
+5. Install PyTorch and PyTorch Geometric for your platform (choose the right wheel for your CUDA/CPU setup, see https://pytorch.org/get-started/locally/ and https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html):
 
 ```bash
-pip install torch torchvision torchaudio  # pick version/build matching your CUDA
-pip install torch_geometric
-pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv  
+uv pip install torch  # pick version/build matching your CUDA
+uv pip install torch_geometric
+uv pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv
 ```
 
 Example:
 ```bash
-pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0
-pip install torch_geometric
-pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.8.0+cu129.html
+uv pip install torch==2.8.0 
+uv pip install torch_geometric
+uv pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.8.0+cu129.html
 ```
 
 ### Data
