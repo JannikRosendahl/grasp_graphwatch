@@ -121,6 +121,7 @@ def main():
     print("🔌 Connecting to database...")
 
     conn = psycopg2.connect(**DB_CONN_ARGS)  # type: ignore
+    print(f"Connected to database: {DB_NAME} at {DB_HOST}:{DB_PORT} as {DB_USER}")
     conn.autocommit = True  # required for COPY
 
     try:
