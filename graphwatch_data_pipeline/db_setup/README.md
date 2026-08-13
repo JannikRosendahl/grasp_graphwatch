@@ -57,4 +57,4 @@ docker-compose down
     rm -rf ./.postgres_data_grasp_graphwatch
     ```
 
-- The values from `.env` must match the connection settings used by the data pipeline scripts (e.g. `db_host`, `db_port`, `db_user`, `db_password`, `db_name` in `graphwatch_data_pipeline/sysdig/.env_upload`).
+- The values from `.env` must match the connection settings used by the data pipeline scripts (e.g. `db_host`, `db_port`, `db_user`, `db_password`, `db_name` in `graphwatch_data_pipeline/sysdig/.env`).

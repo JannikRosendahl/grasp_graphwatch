@@ -86,11 +86,14 @@ One-time setup (or reset) of the Postgres instance the pipeline loads data into 
 
 With the scap files in place under `sysdig/input/sysdig_scaps/` and the database running
 and reachable, run the sysdig pipeline — see [`sysdig/README.md`](sysdig/README.md) for
-prerequisites and the `.env_upload` setup:
+prerequisites and the `.env` setup:
+Furthermore, ensure the GRASP virtual environment is activated and at least the
+`requirements.txt` has been installed.
 
 ```bash
+cp .env_example .env
 cd graphwatch_data_pipeline/sysdig
-source .env_upload
+source .env
 ./main.py
 ```
 

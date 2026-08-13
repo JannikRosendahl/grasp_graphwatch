@@ -11,20 +11,24 @@ This directory contains the Sysdig data pipeline for Graphwatch.
 
 ## Setup
 
-1. Set up PostgreSQL.
-2. Create and configure the `.env` file.
-3. Make all files executable:
+1. Follow the PostgreSQL setup instructions in `../db_setup/README.md`.
+2. Create and configure the `.env` file with the correct PostgreSQL connection details.
+```bash
+cp .env_example .env
+```
+3. Ensure the input directory exists and place the data in `input/sysdig_scaps`.
+4. Make all files executable:
 
-	```bash
-	chmod +x ./*.py
-	```
+```bash
+chmod +x ./*.py
+```
 
 ## Run
 
 After placing the input data in `input/sysdig_scaps`, run:
 
 ```bash
-source .env_upload
+source .env
 ./main.py
 ```
 

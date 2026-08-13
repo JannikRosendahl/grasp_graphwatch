@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 # ------------------ CONFIG ------------------
 
 BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env_upload")
+load_dotenv(BASE_DIR / ".env")
 
 PARSED_DIR = BASE_DIR / "output" / "tables"
 EVENT_DIR = PARSED_DIR / "event_table"
