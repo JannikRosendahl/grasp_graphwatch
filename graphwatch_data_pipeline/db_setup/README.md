@@ -18,7 +18,7 @@ This directory contains the Docker Compose setup for the PostgreSQL database use
     - `POSTGRES_USER` — database user
     - `POSTGRES_PASSWORD` — database password
     - `POSTGRES_PORT` — host port the database is exposed on
-    - `POSTGRES_DB_NAME` — database name
+    - `POSTGRES_DB_NAME` — database name; this should match the corresponding data type/database context (for example, `sysdig`)
 
 3. Start the database:
 

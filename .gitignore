@@ -23,3 +23,4 @@ graphwatch_data_pipeline/setup_db/.postgres_data_grasp_graphwatch/
 pids_runs/*
 graphwatch_data_pipeline/sysdig/backup_data/
 bachup_data/*
+grasp/experiments/sysdig_spade/experiment_sysdig_2_tmp.yaml
