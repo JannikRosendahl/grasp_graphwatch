@@ -46,6 +46,7 @@ DB_USER: str = os.getenv("db_user", "default_user")
 DB_PASSWORD: str = os.getenv("db_password", "default_password")
 DB_HOST: str = os.getenv("db_host", "localhost")
 DB_PORT: str = os.getenv("db_port", "5432")
+DB_NAME_FROM_ENV: str = os.getenv("db_name", "default_db")
 
 OPTC_OPERATIONS: dict[int, str] = {idx: op.value for idx, op in enumerate(OptcOperation)}
 
@@ -84,6 +85,7 @@ EXPERIMENT_CONFIG: dict[str, Any] = load_experiment_config(EXPERIMENT_CONFIG_PAT
 
 DEFAULT_DATASET = DatasetName.CADETS_E3
 
+
 RAW_DATASET_NAME: str = EXPERIMENT_CONFIG.get("dataset", {}).get(  # type: ignore
     "name", DEFAULT_DATASET.value
 )
@@ -97,10 +99,15 @@ except ValueError as exc:
     ) from exc
 
 DATASET_NAME: str = DATASET_NAME_ENUM.value
+DB_DATASET_NAME: str = DATASET_NAME_ENUM.value
+
+if DB_NAME_FROM_ENV != "default_db":
+    DB_DATASET_NAME: str = DB_NAME_FROM_ENV
+
 
 EXPERIMENT_PREFIX: str = EXPERIMENT_CONFIG.get("experiment_prefix", "default")
 
-DB_URL: str = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DATASET_NAME}"
+DB_URL: str = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_DATASET_NAME}"
 
 ATTACK_WINDOWS_FOR_VISUALIZATION: list[tuple[str, str]] = EXPERIMENT_CONFIG.get(
     "attack_windows_for_visualization", []
@@ -254,10 +261,14 @@ def reload_experiment_config(config_path: str | Path | None = None) -> None:
         ) from exc
 
     DATASET_NAME = DATASET_NAME_ENUM.value
+    DB_DATASET_NAME = DATASET_NAME_ENUM.value
+
+    if DB_NAME_FROM_ENV != "default_db":
+        DB_DATASET_NAME: str = DB_NAME_FROM_ENV
 
     EXPERIMENT_PREFIX = EXPERIMENT_CONFIG.get("experiment_prefix", "default")
 
-    DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DATASET_NAME}"
+    DB_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_DATASET_NAME}"
 
     ATTACK_WINDOWS_FOR_VISUALIZATION = EXPERIMENT_CONFIG.get("attack_windows_for_visualization", [])
 
