@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 
 import torch
-
 from grasp import config
 from grasp.detection import (
     classification,
